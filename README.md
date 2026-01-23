@@ -44,14 +44,50 @@ The agent uses a **conversational design** with on-demand figure extraction:
 
 ## Installation & Setup
 
-### 1. Clone the Repository
+### 🚀 Quick Start (One-Click Setup)
+
+**The easiest way to get started:**
+
+1. **Get your Gemini API key** from [Google AI Studio](https://aistudio.google.com/app/apikey)
+
+2. **Create `.env` file** in the `backend/` folder:
+   ```bash
+   cd backend
+   echo "GOOGLE_API_KEY=your_api_key_here" > .env
+   ```
+
+3. **Run the startup script:**
+
+   **Mac/Linux:**
+   ```bash
+   ./start.sh
+   ```
+
+   **Windows:**
+   ```bash
+   start.bat
+   ```
+
+That's it! The script will:
+- ✅ Check all prerequisites (Python, Node.js)
+- ✅ Install backend and frontend dependencies
+- ✅ Start both servers automatically
+- ✅ Open the application in your browser
+
+---
+
+### 📋 Manual Setup (Alternative)
+
+If you prefer manual setup or the startup script doesn't work:
+
+#### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/HaoliangCheng/paper-reading-agent.git
 cd paper-reading-agent
 ```
 
-### 2. Backend Setup
+#### 2. Backend Setup
 
 #### Option A: Using UV (Recommended - Faster)
 
