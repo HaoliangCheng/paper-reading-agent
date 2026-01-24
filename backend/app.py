@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 import os
 import time
@@ -92,10 +92,7 @@ def _parse_step1_response(response_text: str, fallback_title: str) -> tuple:
 @app.route('/api/analyze', methods=['POST'])
 def analyze_paper():
     """
-    Handle PDF upload and run Step 1 using ConversationalPaperAgent (Design 4).
-
-    Design 4: No upfront figure extraction - images extracted on-demand.
-    Returns Step 1 content and stores the agent session for subsequent chat.
+    Handle PDF upload and run Step 1 using ConversationalPaperAgent with streaming.
     """
     try:
         language = request.form.get('language', 'English')
@@ -107,11 +104,9 @@ def analyze_paper():
             file = request.files['file']
             if file.filename != '':
                 original_filename = secure_filename(file.filename)
-                # Create folder for this paper: paper_id_filename
                 folder_name = f"{paper_id}_{os.path.splitext(original_filename)[0]}"
                 paper_folder = os.path.join(app.config['UPLOAD_FOLDER'], folder_name)
                 os.makedirs(paper_folder, exist_ok=True)
-
                 file_path = os.path.join(paper_folder, original_filename)
                 file.save(file_path)
 
@@ -131,11 +126,9 @@ def analyze_paper():
                     original_filename += ".pdf"
                 original_filename = secure_filename(original_filename)
 
-                # Create folder for this paper
                 folder_name = f"{paper_id}_{os.path.splitext(original_filename)[0]}"
                 paper_folder = os.path.join(app.config['UPLOAD_FOLDER'], folder_name)
                 os.makedirs(paper_folder, exist_ok=True)
-
                 file_path = os.path.join(paper_folder, original_filename)
 
                 with open(file_path, 'wb') as f:
@@ -145,63 +138,71 @@ def analyze_paper():
         if not file_path:
             return jsonify({'error': 'No PDF file or URL provided'}), 400
 
-        # Upload PDF to Gemini
-        logger.info("Uploading PDF to Gemini...")
-        gemini_file = llm_provider.upload_file(file_path)
+        def generate():
+            try:
+                yield f"data: {json.dumps({'status': 'Uploading to Gemini...'})}\n\n"
+                gemini_file = llm_provider.upload_file(file_path)
 
-        # Create ConversationalPaperAgent
-        agent = ConversationalPaperAgent(
-            llm_provider=llm_provider,
-            file=gemini_file,
-            pdf_path=file_path,
-            paper_folder=paper_folder,
-            language=language
-        )
+                agent = ConversationalPaperAgent(
+                    llm_provider=llm_provider,
+                    file=gemini_file,
+                    pdf_path=file_path,
+                    paper_folder=paper_folder,
+                    language=language
+                )
 
-        # Start session and generate initial summary
-        step1_content = agent.start_session()
+                step1_summary = ""
+                extracted_images = []
+                
+                for update in agent.start_session_stream():
+                    if isinstance(update, dict) and 'response' in update:
+                        step1_content = update['response']
+                        extracted_images = agent.get_extracted_images()
+                        
+                        # Parse title and summary
+                        paper_title, step1_summary = _parse_step1_response(step1_content, original_filename)
+                        
+                        # Store session
+                        reading_sessions[paper_id] = {
+                            'agent': agent,
+                            'file': gemini_file,
+                            'language': language,
+                            'paper_folder': paper_folder,
+                            'pdf_path': file_path
+                        }
+                        
+                        # Save to database
+                        save_reading_session(paper_id, extracted_images)
+                        paper_data = {
+                            'id': paper_id,
+                            'title': paper_title,
+                            'file_path': file_path,
+                            'gemini_file_name': gemini_file.name,
+                            'language': language,
+                            'summary': step1_summary
+                        }
+                        save_paper(paper_data)
+                        save_message({
+                            'id': f"ai-{paper_id}-initial",
+                            'paper_id': paper_id,
+                            'text': step1_summary,
+                            'is_user': False
+                        })
 
-        # Parse title and summary from response
-        paper_title, step1_summary = _parse_step1_response(step1_content, original_filename)
-        logger.info(f"Paper analyzed: {paper_title}")
+                        yield f"data: {json.dumps({
+                            'id': paper_id,
+                            'title': paper_title,
+                            'response': step1_summary,
+                            'extracted_images': extracted_images
+                        })}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'status': update})}\n\n"
 
-        # Store reading session for subsequent chat
-        reading_sessions[paper_id] = {
-            'agent': agent,
-            'file': gemini_file,
-            'language': language,
-            'paper_folder': paper_folder,
-            'pdf_path': file_path
-        }
+            except Exception as e:
+                logger.error(f"Error in analyze_paper generator: {e}", exc_info=True)
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-        # Save session state to database for persistence across restarts
-        save_reading_session(paper_id, agent.get_extracted_images())
-
-        # Save to database
-        paper_data = {
-            'id': paper_id,
-            'title': paper_title,
-            'file_path': file_path,
-            'gemini_file_name': gemini_file.name,
-            'language': language,
-            'summary': step1_summary
-        }
-        save_paper(paper_data)
-
-        # Save initial summary as the first AI message
-        save_message({
-            'id': f"ai-{paper_id}-initial",
-            'paper_id': paper_id,
-            'text': step1_summary,
-            'is_user': False
-        })
-
-        return jsonify({
-            'id': paper_id,
-            'title': paper_title,
-            'content': step1_summary,
-            'extracted_images': agent.get_extracted_images()
-        })
+        return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
     except Exception as e:
         logger.error(f"Error in analyze_paper: {e}", exc_info=True)
@@ -211,9 +212,7 @@ def analyze_paper():
 @app.route('/api/chat', methods=['POST'])
 def chat():
     """
-    Handle chat using ConversationalPaperAgent.
-
-    Returns the response along with extracted images information.
+    Handle chat using ConversationalPaperAgent with streaming status updates.
     """
     try:
         data = request.get_json()
@@ -233,85 +232,97 @@ def chat():
             'is_user': True
         })
 
-        # Check if we have an active session
-        if paper_id not in reading_sessions:
-            # Try to recreate session if paper exists in database
-            if paper.get('gemini_file_name') and paper.get('file_path'):
-                try:
-                    # Recreate the session
-                    gemini_file = llm_provider.get_file(paper['gemini_file_name'])
-                    file_path = paper['file_path']
-                    paper_folder = os.path.dirname(file_path)
+        def generate():
+            try:
+                # Helper to send status
+                def send_status(status_msg):
+                    yield f"data: {json.dumps({'status': status_msg})}\n\n"
 
-                    # Load saved session state from database
-                    saved_session = get_reading_session(paper_id)
-                    restored_images = saved_session.get('extracted_images', []) if saved_session else []
+                # Check if we have an active session
+                if paper_id not in reading_sessions:
+                    # Recreate session logic (simplified for brevity here, same as original)
+                    yield from send_status("Restoring session...")
+                    if paper.get('gemini_file_name') and paper.get('file_path'):
+                        gemini_file = llm_provider.get_file(paper['gemini_file_name'])
+                        file_path = paper['file_path']
+                        paper_folder = os.path.dirname(file_path)
+                        saved_session = get_reading_session(paper_id)
+                        restored_images = saved_session.get('extracted_images', []) if saved_session else []
+                        messages = get_messages_by_paper(paper_id)
+                        restored_history = []
+                        for msg in messages:
+                            restored_history.append({
+                                'role': 'user' if msg['isUser'] else 'assistant',
+                                'content': msg['text']
+                            })
 
-                    # Load conversation history from messages
-                    messages = get_messages_by_paper(paper_id)
-                    restored_history = []
-                    for msg in messages:
-                        restored_history.append({
-                            'role': 'user' if msg['isUser'] else 'assistant',
-                            'content': msg['text']
+                        agent = ConversationalPaperAgent(
+                            llm_provider=llm_provider,
+                            file=gemini_file,
+                            pdf_path=file_path,
+                            paper_folder=paper_folder,
+                            language=paper.get('language', language),
+                            restored_images=restored_images if restored_images else None,
+                            restored_history=restored_history if restored_history else None
+                        )
+                        agent.start_session()
+                        reading_sessions[paper_id] = {
+                            'agent': agent,
+                            'file': gemini_file,
+                            'language': paper.get('language', language),
+                            'paper_folder': paper_folder,
+                            'pdf_path': file_path
+                        }
+                    else:
+                        yield f"data: {json.dumps({'error': 'Session expired'})}\n\n"
+                        return
+
+                session = reading_sessions[paper_id]
+                agent = session['agent']
+                
+                # Create a wrapper for the callback to yield from the generator
+                # Since we can't yield from a nested function, we'll use a local list to capture statuses
+                status_queue = []
+                def agent_status_callback(s):
+                    status_queue.append(s)
+                
+                agent.status_callback = agent_status_callback
+
+                # We need to run agent.send_message and periodically check status_queue
+                # But since send_message is synchronous, we'll just manually trigger status updates 
+                # inside agent.py and we need to yield them here.
+                # Actually, if we make send_message take the callback, it might be easier.
+                
+                # Let's use a simpler approach: modify agent.py to yield statuses? 
+                # No, let's keep it simple for now and just use the callback to update a shared state 
+                # or just modify send_message to be a generator.
+                
+                # Best approach for Flask: use a queue and a separate thread, but that's complex.
+                # Since we are already in a generator, let's just make send_message a generator in agent.py
+                
+                # RE-THINK: Let's just make agent.send_message yield statuses.
+                
+                for update in agent.send_message_stream(message):
+                    if isinstance(update, dict) and 'response' in update:
+                        # Final response
+                        response_text = update['response']
+                        save_message({
+                            'id': f"ai-{int(time.time() * 1000)}",
+                            'paper_id': paper_id,
+                            'text': response_text,
+                            'is_user': False
                         })
+                        save_reading_session(paper_id, agent.get_extracted_images())
+                        yield f"data: {json.dumps(update)}\n\n"
+                    else:
+                        # Status update
+                        yield f"data: {json.dumps({'status': update})}\n\n"
 
-                    logger.info(f"Restoring session: {len(restored_history)} msgs, {len(restored_images)} images")
+            except Exception as e:
+                logger.error(f"Error in chat generator: {e}", exc_info=True)
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-                    # Create new agent with restored state
-                    agent = ConversationalPaperAgent(
-                        llm_provider=llm_provider,
-                        file=gemini_file,
-                        pdf_path=file_path,
-                        paper_folder=paper_folder,
-                        language=paper.get('language', language),
-                        restored_images=restored_images if restored_images else None,
-                        restored_history=restored_history if restored_history else None
-                    )
-
-                    # Start session (will restore context if available)
-                    agent.start_session()
-
-                    # Store session
-                    reading_sessions[paper_id] = {
-                        'agent': agent,
-                        'file': gemini_file,
-                        'language': paper.get('language', language),
-                        'paper_folder': paper_folder,
-                        'pdf_path': file_path
-                    }
-
-                except Exception as e:
-                    logger.error(f"Failed to recreate session: {e}", exc_info=True)
-                    return jsonify({
-                        'error': 'Reading session expired. Please re-upload the paper.'
-                    }), 404
-            else:
-                return jsonify({
-                    'error': 'Reading session not found. Please re-upload the paper.'
-                }), 404
-
-        # Get agent and send message
-        session = reading_sessions[paper_id]
-        agent = session['agent']
-
-        response_text = agent.send_message(message)
-
-        # Save AI response
-        save_message({
-            'id': f"ai-{int(time.time() * 1000)}",
-            'paper_id': paper_id,
-            'text': response_text,
-            'is_user': False
-        })
-
-        # Update session state in database (persist extracted images)
-        save_reading_session(paper_id, agent.get_extracted_images())
-
-        return jsonify({
-            'response': response_text,
-            'extracted_images': agent.get_extracted_images()
-        })
+        return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
     except Exception as e:
         logger.error(f"Error in chat: {e}", exc_info=True)

@@ -27,7 +27,8 @@ class ConversationalPaperAgent:
         paper_folder: str,
         language: str = "English",
         restored_images: List[Dict] = None,
-        restored_history: List[Dict[str, str]] = None
+        restored_history: List[Dict[str, str]] = None,
+        status_callback = None
     ):
         """
         Initialize the conversational agent.
@@ -40,6 +41,7 @@ class ConversationalPaperAgent:
             language: Response language preference
             restored_images: Previously extracted images (for session restore)
             restored_history: Previous conversation history (for session restore)
+            status_callback: Optional callback for status updates (e.g., status_callback("Thinking"))
         """
         self.llm = llm_provider
         self.client = llm_provider.client
@@ -50,6 +52,7 @@ class ConversationalPaperAgent:
         self.conversation_history: List[Dict[str, str]] = restored_history or []
         self.system_prompt = None
         self._is_restored = restored_images is not None or restored_history is not None
+        self.status_callback = status_callback
 
         # Create on-demand image extractor
         self.image_extractor = OnDemandImageExtractor(
@@ -97,6 +100,32 @@ class ConversationalPaperAgent:
 
         return response
 
+    def start_session_stream(self):
+        """
+        Streaming version of start_session.
+        """
+        self.system_prompt = CONVERSATIONAL_SYSTEM_PROMPT
+        self.system_prompt += f"\n\n**Response Language**: Always respond in {self.language}."
+
+        if self._is_restored and self.conversation_history:
+            for msg in reversed(self.conversation_history):
+                if msg["role"] == "assistant":
+                    yield {"response": msg["content"]}
+                    return
+            yield {"response": ""}
+            return
+
+        # Use send_message_stream logic for Step 1
+        for update in self.send_message_stream(STEP1_INITIAL_PROMPT):
+            if isinstance(update, dict) and 'response' in update:
+                # We don't want to duplicate history here because send_message_stream already adds to it
+                # and Step 1 is special. But actually send_message_stream adds user prompt too.
+                # For Step 1, we might want to keep history clean or handle it specially.
+                # Let's just yield it.
+                yield update
+            else:
+                yield update
+
     def send_message(self, user_message: str) -> str:
         """
         Send a user message and get agent response.
@@ -121,6 +150,95 @@ class ConversationalPaperAgent:
         })
 
         return response
+
+    def send_message_stream(self, user_message: str):
+        """
+        Send a user message and yield status updates and final response.
+        """
+        # We need to capture the status updates. We'll temporarily override status_callback
+        original_callback = self.status_callback
+        
+        def streaming_callback(s):
+            self._current_status = s
+            if original_callback:
+                original_callback(s)
+
+        self.status_callback = streaming_callback
+        self._current_status = None
+
+        # Build contents
+        contents = self._build_contents(user_message)
+        full_system_prompt = self._build_system_prompt()
+        tools = [types.Tool(function_declarations=create_conversational_tools(self.extracted_images))]
+        config = types.GenerateContentConfig(
+            system_instruction=full_system_prompt,
+            tools=tools
+        )
+
+        yield "Thinking"
+        
+        response = self.client.models.generate_content(
+            model=self.model_id,
+            contents=contents,
+            config=config
+        )
+
+        # Handle function calls loop
+        max_iterations = 10
+        iteration = 0
+        while iteration < max_iterations:
+            iteration += 1
+            if not hasattr(response, 'function_calls') or not response.function_calls:
+                break
+
+            function_calls = response.function_calls
+            if response.candidates and response.candidates[0].content:
+                contents.append(response.candidates[0].content)
+
+            function_response_parts = []
+            for fc in function_calls:
+                # Yield status for each function
+                status_msg = f"Executing: {fc.name}"
+                if fc.name == "extract_images":
+                    status_msg = "Executing: Extracting figures"
+                elif fc.name == "web_search":
+                    status_msg = f"Searching web {fc.args.get('query', '')}"
+                elif fc.name == "explain_images":
+                    status_msg = "Executing: Analyzing figure details"
+                yield status_msg
+
+                result = self._execute_function(fc)
+                function_response_parts.append(
+                    types.Part.from_function_response(name=fc.name, response=result)
+                )
+
+            contents.append(types.Content(role="user", parts=function_response_parts))
+            
+            # Update tools/config
+            tools = [types.Tool(function_declarations=create_conversational_tools(self.extracted_images))]
+            config = types.GenerateContentConfig(system_instruction=self._build_system_prompt(), tools=tools)
+
+            yield "Thinking"
+            response = self.client.models.generate_content(
+                model=self.model_id,
+                contents=contents,
+                config=config
+            )
+
+        yield "Generating final response"
+        result = self._extract_text_response(response)
+
+        # Update history
+        self.conversation_history.append({"role": "user", "content": user_message})
+        self.conversation_history.append({"role": "assistant", "content": result})
+
+        # Reset callback
+        self.status_callback = original_callback
+
+        yield {
+            "response": result,
+            "extracted_images": self.extracted_images
+        }
 
     def _build_system_prompt(self) -> str:
         """Build full system prompt with extracted images context."""
@@ -208,6 +326,9 @@ class ConversationalPaperAgent:
 
         # Generate response
         logger.info(f"→ LLM Request ({len(contents)} content parts)...")
+        if self.status_callback:
+            self.status_callback("Thinking")
+
         response = self.client.models.generate_content(
             model=self.model_id,
             contents=contents,
@@ -218,6 +339,9 @@ class ConversationalPaperAgent:
         response, contents = self._handle_function_calls(response, contents, config)
 
         # Extract final text response
+        if self.status_callback:
+            self.status_callback("Generating final response")
+            
         result = self._extract_text_response(response)
         logger.info(f"← LLM Response: {len(result)} chars")
         return result
@@ -256,6 +380,18 @@ class ConversationalPaperAgent:
             function_response_parts = []
             for idx, fc in enumerate(function_calls):
                 logger.info(f"[{idx+1}/{len(function_calls)}] Executing: {fc.name}")
+                
+                # Update status for each function call
+                if self.status_callback:
+                    status_msg = f"Executing: {fc.name}"
+                    if fc.name == "extract_images":
+                        status_msg = "Executing: Extracting figures"
+                    elif fc.name == "web_search":
+                        status_msg = f"Searching web {fc.args.get('query', '')}"
+                    elif fc.name == "explain_images":
+                        status_msg = "Executing: Analyzing figure details"
+                    self.status_callback(status_msg)
+
                 try:
                     result = self._execute_function(fc)
                     success = result.get('success', 'unknown') if isinstance(result, dict) else 'unknown'
@@ -289,6 +425,9 @@ class ConversationalPaperAgent:
 
             # Generate next response
             logger.info(f"→ Sending function responses to LLM...")
+            if self.status_callback:
+                self.status_callback("Thinking")
+                
             try:
                 response = self.client.models.generate_content(
                     model=self.model_id,

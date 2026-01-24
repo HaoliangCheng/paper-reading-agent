@@ -194,8 +194,7 @@ echo -e "${GREEN}✓ Frontend started (PID: $FRONTEND_PID)${NC}\n"
 echo -e "${GREEN}================================================${NC}"
 echo -e "${GREEN}   ✓ Paper Reading Agent is running!${NC}"
 echo -e "${GREEN}================================================${NC}\n"
-echo -e "${BLUE}Backend:${NC}  http://localhost:5000"
-echo -e "${BLUE}Frontend:${NC} http://localhost:3000"
+echo -e "http://localhost:3000"
 echo -e "\n${YELLOW}Press Ctrl+C to stop all servers${NC}\n"
 
 # Open browser

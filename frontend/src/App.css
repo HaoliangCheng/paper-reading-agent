@@ -193,58 +193,101 @@ body {
   color: var(--text-tertiary);
 }
 
-.paper-actions {
+.paper-actions-side {
   display: flex;
-  gap: 4px;
-  align-items: center;
-}
-
-.location-button {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background-color: transparent;
-  color: #94a3b8;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 12px;
+  min-width: 45px;
+}
+
+.view-pdf-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background-color: transparent;
+  color: #6366f1;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
   transition: all 0.2s;
+  opacity: 0.7;
+}
+
+.view-pdf-button:hover {
   opacity: 1;
+  color: #4f46e5;
+  background-color: #f5f3ff;
+  border-color: #ddd6fe;
+}
+
+.view-pdf-button svg {
+  stroke-width: 2.5;
+  width: 10px;
+  height: 10px;
+}
+
+/* Dark mode support */
+.dark-mode .view-pdf-button {
+  color: #818cf8;
+}
+
+.dark-mode .view-pdf-button:hover {
+  color: #a5b4fc;
+  background-color: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.2);
 }
 
 .delete-button {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background-color: transparent;
-  color: #94a3b8;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background-color: transparent;
+  color: #ef4444;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
   transition: all 0.2s;
   opacity: 0;
 }
 
 .paper-item:hover .delete-button {
-  opacity: 1;
-}
-
-.location-button:hover {
-  background-color: #f0fdf4;
-  color: #10b981;
-  transform: scale(1.1);
+  opacity: 0.7;
 }
 
 .delete-button:hover {
-  background-color: #fee2e2;
-  color: #ef4444;
-  transform: scale(1.1);
+  opacity: 1 !important;
+  color: #dc2626;
+  background-color: #fef2f2;
+  border-color: #fecaca;
+}
+
+.delete-button svg {
+  stroke-width: 3;
+}
+
+/* Dark mode support for delete button */
+.dark-mode .delete-button {
+  color: #f87171;
+}
+
+.dark-mode .delete-button:hover {
+  color: #fca5a5;
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
 }
 
 /* Main Content Area */
@@ -426,7 +469,7 @@ body {
 .message-content h1, 
 .message-content h2, 
 .message-content h3 {
-  margin: 1.5em 0 0.5em 0;
+  margin: 0.5em 0 0.5em 0;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -1004,6 +1047,74 @@ body {
     transform: translateY(-6px);
     opacity: 1;
   }
+}
+
+/* Typing Indicator & Thinking Stage Styling */
+.typing-indicator-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 8px 16px;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.thinking-stage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.stage-text {
+  color: var(--text-primary);
+  opacity: 0.9;
+}
+
+.typing-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.typing-dots span {
+  width: 4px;
+  height: 4px;
+  background-color: #4f46e5;
+  border-radius: 50%;
+  opacity: 0.4;
+  animation: typing-fade 1.4s infinite;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing-fade {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Modal Loading States */
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.loading-text {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Dark mode adjustments */
+.dark-mode .typing-dots span {
+  background-color: #818cf8;
 }
 
 /* Scrollbar styling */
