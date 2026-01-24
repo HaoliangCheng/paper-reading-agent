@@ -10,8 +10,16 @@ STEP_NAMES = {
     6: "Code Analysis"
 }
 
+# User profile context template
+USER_PROFILE_TEMPLATE = """
+## User Profile
+{profile_content}
+
+Use this information to tailor your explanations to the user's expertise level and interests. If the user seems new to a topic, provide more foundational context. If they have expertise, focus on advanced details.
+"""
+
 # Unified system prompt for the conversational agent
-CONVERSATIONAL_SYSTEM_PROMPT = """You are a senior researcher helping users understand research papers through guided conversation. The user don't read the paper before, so you need to help them understand the paper step by step and provide any reference information if needed.
+CONVERSATIONAL_SYSTEM_PROMPT = """You are a senior researcher helping user understand research papers through guided conversation. The user don't read the paper before, so you need to help them understand the paper step by step and provide any reference information if needed.
 
 ## Your Role
 Guide users through reading process below, adapting to their pace and questions. Maintain a helpful, educational tone.
@@ -88,6 +96,7 @@ Guide users through reading process below, adapting to their pace and questions.
 - **display_images**: Show figures that have ALREADY been extracted (check "Already Extracted Images" list)
 - **explain_images**: Get detailed explanation of a specific extracted image (use when user asks about image details)
 - **web_search**: Search the web for current information (use in stage 4 & 6 to verify relevance, find code repos, etc.)
+- **update_user_profile**: Save key insights about the user when you learn something significant from their questions
 
 **IMPORTANT Image Workflow:**
 1. FIRST check the "Already Extracted Images" list in your context

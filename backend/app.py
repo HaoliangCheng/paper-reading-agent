@@ -25,7 +25,8 @@ import re
 from database import (
     init_database, save_paper, get_all_papers, get_paper_by_id,
     delete_paper, save_message, get_messages_by_paper,
-    save_reading_session, get_reading_session
+    save_reading_session, get_reading_session,
+    get_user_profile, save_user_profile, add_user_key_point
 )
 from agents import ConversationalPaperAgent
 from providers import GeminiProvider
@@ -143,12 +144,17 @@ def analyze_paper():
                 yield f"data: {json.dumps({'status': 'Uploading to Gemini...'})}\n\n"
                 gemini_file = llm_provider.upload_file(file_path)
 
+                # Get user profile for personalization
+                user_profile = get_user_profile()
+
                 agent = ConversationalPaperAgent(
                     llm_provider=llm_provider,
                     file=gemini_file,
                     pdf_path=file_path,
                     paper_folder=paper_folder,
-                    language=language
+                    language=language,
+                    user_profile=user_profile,
+                    add_key_point_callback=add_user_key_point
                 )
 
                 step1_summary = ""
@@ -256,6 +262,9 @@ def chat():
                                 'content': msg['text']
                             })
 
+                        # Get user profile for personalization
+                        user_profile = get_user_profile()
+
                         agent = ConversationalPaperAgent(
                             llm_provider=llm_provider,
                             file=gemini_file,
@@ -263,7 +272,9 @@ def chat():
                             paper_folder=paper_folder,
                             language=paper.get('language', language),
                             restored_images=restored_images if restored_images else None,
-                            restored_history=restored_history if restored_history else None
+                            restored_history=restored_history if restored_history else None,
+                            user_profile=user_profile,
+                            add_key_point_callback=add_user_key_point
                         )
                         agent.start_session()
                         reading_sessions[paper_id] = {
@@ -409,6 +420,32 @@ def explain_figure():
 def serve_upload(filename):
     """Serve uploaded files (PDFs and images) from paper folders"""
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+
+@app.route('/api/profile', methods=['GET'])
+def get_profile():
+    """Get the user profile"""
+    try:
+        profile = get_user_profile()
+        return jsonify(profile)
+    except Exception as e:
+        logger.error(f"Error getting profile: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/profile', methods=['PUT'])
+def update_profile():
+    """Update the user profile"""
+    try:
+        data = request.get_json()
+        name = data.get('name', '')
+        key_points = data.get('key_points', [])
+
+        save_user_profile(name, key_points)
+        return jsonify({'message': 'Profile updated successfully'})
+    except Exception as e:
+        logger.error(f"Error updating profile: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/health', methods=['GET'])

@@ -4,7 +4,33 @@ from typing import List, Dict, Any
 from google.genai import types
 
 
-def create_conversational_tools(extracted_images: List[Dict] = None) -> List[types.FunctionDeclaration]:
+def create_update_user_profile_tool() -> types.FunctionDeclaration:
+    """Create the update_user_profile function declaration."""
+    return types.FunctionDeclaration(
+        name="update_user_profile",
+        description="""Add a key insight about the user based on their questions.
+
+Call this when you learn something significant about the user's:
+- Research interests or focus areas
+- Technical expertise level
+- Background knowledge
+- Current projects or goals
+
+Only add truly relevant insights that would help personalize future explanations.""",
+        parameters={
+            "type": "object",
+            "properties": {
+                "key_point": {
+                    "type": "string",
+                    "description": "A brief insight about the user (keep it concise, 3-10 words)"
+                }
+            },
+            "required": ["key_point"]
+        }
+    )
+
+
+def create_conversational_tools(extracted_images: List[Dict] = None, include_profile_tool: bool = True) -> List[types.FunctionDeclaration]:
     """
     Create function declarations for the conversational agent (Design 4).
 
@@ -148,4 +174,9 @@ This tool uses Google Search grounding to find relevant web sources.""",
         }
     )
 
-    return [extract_images_declaration, display_images_declaration, explain_images_declaration, web_search_declaration]
+    tools = [extract_images_declaration, display_images_declaration, explain_images_declaration, web_search_declaration]
+
+    if include_profile_tool:
+        tools.append(create_update_user_profile_tool())
+
+    return tools

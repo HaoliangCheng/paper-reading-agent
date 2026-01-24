@@ -1,10 +1,10 @@
 """Conversational Paper Reading Agent - Using generate_content with manual history"""
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable
 from google.genai import types
 
-from .prompts import CONVERSATIONAL_SYSTEM_PROMPT, STEP1_INITIAL_PROMPT
+from .prompts import CONVERSATIONAL_SYSTEM_PROMPT, STEP1_INITIAL_PROMPT, USER_PROFILE_TEMPLATE
 from .tools import create_conversational_tools
 from .image_extractor import OnDemandImageExtractor
 
@@ -28,7 +28,9 @@ class ConversationalPaperAgent:
         language: str = "English",
         restored_images: List[Dict] = None,
         restored_history: List[Dict[str, str]] = None,
-        status_callback = None
+        status_callback = None,
+        user_profile: Dict = None,
+        add_key_point_callback: Callable[[str], bool] = None
     ):
         """
         Initialize the conversational agent.
@@ -42,6 +44,8 @@ class ConversationalPaperAgent:
             restored_images: Previously extracted images (for session restore)
             restored_history: Previous conversation history (for session restore)
             status_callback: Optional callback for status updates (e.g., status_callback("Thinking"))
+            user_profile: Optional user profile dict with name, background, key_points
+            add_key_point_callback: Optional callback to add key points to user profile
         """
         self.llm = llm_provider
         self.client = llm_provider.client
@@ -53,6 +57,8 @@ class ConversationalPaperAgent:
         self.system_prompt = None
         self._is_restored = restored_images is not None or restored_history is not None
         self.status_callback = status_callback
+        self.user_profile = user_profile or {}
+        self.add_key_point_callback = add_key_point_callback
 
         # Create on-demand image extractor
         self.image_extractor = OnDemandImageExtractor(
@@ -205,6 +211,8 @@ class ConversationalPaperAgent:
                     status_msg = f"Searching web {fc.args.get('query', '')}"
                 elif fc.name == "explain_images":
                     status_msg = "Executing: Analyzing figure details"
+                elif fc.name == "update_user_profile":
+                    status_msg = "Executing: Updating user profile"
                 yield status_msg
 
                 result = self._execute_function(fc)
@@ -241,9 +249,31 @@ class ConversationalPaperAgent:
         }
 
     def _build_system_prompt(self) -> str:
-        """Build full system prompt with extracted images context."""
+        """Build full system prompt with extracted images context and user profile."""
         images_context = self._build_extracted_images_context()
-        return self.system_prompt + images_context
+        profile_context = self._build_user_profile_context()
+        return self.system_prompt + profile_context + images_context
+
+    def _build_user_profile_context(self) -> str:
+        """Build context string showing user profile information."""
+        if not self.user_profile:
+            return ""
+
+        name = self.user_profile.get('name', '')
+        key_points = self.user_profile.get('key_points', [])
+
+        if not name and not key_points:
+            return ""
+
+        profile_parts = []
+        if name:
+            profile_parts.append(f"**Name**: {name}")
+        if key_points:
+            profile_parts.append(f"**Key Insights**: {', '.join(key_points)}")
+
+        profile_content = "\n".join(profile_parts) if profile_parts else "No profile information available."
+
+        return USER_PROFILE_TEMPLATE.format(profile_content=profile_content)
 
     def _build_extracted_images_context(self) -> str:
         """Build context string showing all extracted images."""
@@ -390,6 +420,8 @@ class ConversationalPaperAgent:
                         status_msg = f"Searching web {fc.args.get('query', '')}"
                     elif fc.name == "explain_images":
                         status_msg = "Executing: Analyzing figure details"
+                    elif fc.name == "update_user_profile":
+                        status_msg = "Executing: Updating user profile"
                     self.status_callback(status_msg)
 
                 try:
@@ -549,6 +581,43 @@ class ConversationalPaperAgent:
                     return result
                 except Exception as e:
                     logger.error(f"✗ Web search failed: {e}", exc_info=True)
+                    return {"success": False, "error": str(e)}
+
+            elif function_call.name == "update_user_profile":
+                key_point = args.get("key_point", "")
+                logger.info(f"👤 Update user profile: {key_point}")
+
+                if not key_point:
+                    return {"success": False, "error": "No key point provided"}
+
+                try:
+                    if self.add_key_point_callback:
+                        added = self.add_key_point_callback(key_point)
+                        if added:
+                            # Update local profile as well
+                            if 'key_points' not in self.user_profile:
+                                self.user_profile['key_points'] = []
+                            if key_point not in self.user_profile['key_points']:
+                                self.user_profile['key_points'].append(key_point)
+                            logger.info(f"✓ Added key point: {key_point}")
+                            return {
+                                "success": True,
+                                "message": f"Added key insight: {key_point}"
+                            }
+                        else:
+                            logger.info(f"⚠ Key point already exists: {key_point}")
+                            return {
+                                "success": True,
+                                "message": "Key insight already recorded"
+                            }
+                    else:
+                        logger.warning("No callback provided for updating user profile")
+                        return {
+                            "success": False,
+                            "error": "Profile update not available"
+                        }
+                except Exception as e:
+                    logger.error(f"✗ Failed to update profile: {e}", exc_info=True)
                     return {"success": False, "error": str(e)}
 
             else:

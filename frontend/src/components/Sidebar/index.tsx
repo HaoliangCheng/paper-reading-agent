@@ -7,6 +7,7 @@ interface SidebarProps {
   selectedPaper: Paper | null;
   onSelectPaper: (paper: Paper) => void;
   onAddPaper: () => void;
+  onOpenProfile: () => void;
   onConfirmDelete: (paper: Paper, event: React.MouseEvent) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
@@ -17,6 +18,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   selectedPaper,
   onSelectPaper,
   onAddPaper,
+  onOpenProfile,
   onConfirmDelete,
   isCollapsed,
   onToggleCollapse,
@@ -43,13 +45,25 @@ const Sidebar: React.FC<SidebarProps> = ({
     <S.SidebarContainer isCollapsed={isCollapsed}>
       <S.SidebarHeader isCollapsed={isCollapsed}>
         <h2>Paper Agent</h2>
-        <S.AddButton 
-          isCollapsed={isCollapsed} 
-          onClick={onAddPaper} 
-          title="Add New Paper"
-        >
-          +
-        </S.AddButton>
+        <S.HeaderButtons isCollapsed={isCollapsed}>
+          <S.ProfileButton
+            isCollapsed={isCollapsed}
+            onClick={onOpenProfile}
+            title="User Profile"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </S.ProfileButton>
+          <S.AddButton
+            isCollapsed={isCollapsed}
+            onClick={onAddPaper}
+            title="Add New Paper"
+          >
+            +
+          </S.AddButton>
+        </S.HeaderButtons>
       </S.SidebarHeader>
       
       <S.HistorySection>

@@ -4,11 +4,12 @@ import DOMPurify from 'dompurify';
 import 'katex/dist/katex.min.css';
 import styled, { ThemeProvider } from 'styled-components';
 import { theme } from './theme/Theme';
-import { Paper, Message } from './types';
+import { Paper, Message, UserProfile } from './types';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import UploadModal from './components/Modals/UploadModal';
 import DeleteModal from './components/Modals/DeleteModal';
+import ProfileModal from './components/Modals/ProfileModal';
 import './App.css';
 
 const AppContainer = styled.div`
@@ -216,6 +217,11 @@ const App: React.FC = () => {
   const [thinkingStage, setThinkingStage] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    name: '',
+    key_points: [],
+  });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -230,6 +236,38 @@ const App: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading papers:', error);
+    }
+  };
+
+  const loadProfile = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/profile');
+      const data = await response.json();
+      if (response.ok) {
+        setUserProfile({
+          name: data.name || '',
+          key_points: data.key_points || [],
+        });
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  };
+
+  const saveProfile = async (profile: UserProfile) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profile),
+      });
+      if (response.ok) {
+        setUserProfile(profile);
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
     }
   };
 
@@ -248,10 +286,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     loadPapers();
+    loadProfile();
     const savedTheme = localStorage.getItem('theme');
     const lightTheme = document.getElementById('highlight-light') as HTMLLinkElement;
     const darkTheme = document.getElementById('highlight-dark') as HTMLLinkElement;
-    
+
     if (savedTheme === 'dark') {
       setIsDarkMode(true);
       document.documentElement.classList.add('dark-mode');
@@ -442,6 +481,8 @@ const App: React.FC = () => {
               setMessages(prev => [...prev, aiMessage]);
               setIsTyping(false);
               setThinkingStage('');
+              // Refresh profile in case LLM added new key points
+              loadProfile();
             } else if (data.error) {
               throw new Error(data.error);
             }
@@ -503,11 +544,12 @@ const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <AppContainer>
-        <Sidebar 
+        <Sidebar
           papers={papers}
           selectedPaper={selectedPaper}
           onSelectPaper={handleSelectPaper}
           onAddPaper={() => setShowUploadModal(true)}
+          onOpenProfile={() => setShowProfileModal(true)}
           onConfirmDelete={confirmDeletePaper}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -550,10 +592,18 @@ const App: React.FC = () => {
         )}
 
         {showDeleteModal && paperToDelete && (
-          <DeleteModal 
+          <DeleteModal
             paper={paperToDelete}
             onClose={() => setShowDeleteModal(false)}
             onConfirm={handleDeletePaper}
+          />
+        )}
+
+        {showProfileModal && (
+          <ProfileModal
+            profile={userProfile}
+            onClose={() => setShowProfileModal(false)}
+            onSave={saveProfile}
           />
         )}
       </AppContainer>

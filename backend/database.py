@@ -8,7 +8,7 @@ def init_database():
     """Initialize the database with required tables"""
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
-    
+
     # Create papers table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS papers (
@@ -21,7 +21,7 @@ def init_database():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
+
     # Create messages table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS messages (
@@ -42,6 +42,22 @@ def init_database():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (paper_id) REFERENCES papers (id)
         )
+    ''')
+
+    # Create user_profile table (single user for now)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_profile (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            name TEXT DEFAULT '',
+            key_points TEXT DEFAULT '[]',
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # Insert default profile if it doesn't exist
+    cursor.execute('''
+        INSERT OR IGNORE INTO user_profile (id, name, key_points)
+        VALUES (1, '', '[]')
     ''')
 
     conn.commit()
@@ -229,3 +245,64 @@ def delete_reading_session(paper_id):
 
     conn.commit()
     conn.close()
+
+
+def get_user_profile():
+    """Retrieve the user profile"""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT name, key_points, updated_at
+        FROM user_profile
+        WHERE id = 1
+    ''')
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if row:
+        return {
+            'name': row[0] or '',
+            'key_points': json.loads(row[1]) if row[1] else [],
+            'updated_at': row[2]
+        }
+    return {
+        'name': '',
+        'key_points': [],
+        'updated_at': None
+    }
+
+
+def save_user_profile(name: str, key_points: list):
+    """Save user profile"""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        INSERT OR REPLACE INTO user_profile (id, name, key_points, updated_at)
+        VALUES (1, ?, ?, ?)
+    ''', (
+        name,
+        json.dumps(key_points),
+        datetime.now().isoformat()
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def add_user_key_point(key_point: str):
+    """Add a key point to the user profile (for LLM auto-add)"""
+    profile = get_user_profile()
+    key_points = profile.get('key_points', [])
+
+    # Avoid duplicates
+    if key_point not in key_points:
+        key_points.append(key_point)
+        save_user_profile(
+            profile.get('name', ''),
+            key_points
+        )
+        return True
+    return False

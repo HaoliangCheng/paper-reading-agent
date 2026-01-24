@@ -13,3 +13,8 @@ export interface Message {
   isUser: boolean;
   timestamp: string;
 }
+
+export interface UserProfile {
+  name: string;
+  key_points: string[];
+}

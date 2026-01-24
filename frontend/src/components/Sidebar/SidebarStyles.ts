@@ -21,13 +21,13 @@ export const SidebarContainer = styled.div<{ isCollapsed: boolean }>`
 `;
 
 export const SidebarHeader = styled.div<{ isCollapsed: boolean }>`
-  height: 80px;
-  padding: 0 ${props => props.isCollapsed ? '12px' : '20px'};
+  height: ${props => props.isCollapsed ? '112px' : '80px'};
+  padding: ${props => props.isCollapsed ? '16px 12px' : '0 20px'};
   border-bottom: 1px solid ${props => props.theme.colors.borderColor};
   display: flex;
   justify-content: ${props => props.isCollapsed ? 'center' : 'space-between'};
   align-items: center;
-  transition: padding 0.3s ease;
+  transition: all 0.3s ease;
   flex-shrink: 0;
 
   h2 {
@@ -51,6 +51,13 @@ export const SidebarHeader = styled.div<{ isCollapsed: boolean }>`
   // }
 `;
 
+export const HeaderButtons = styled.div<{ isCollapsed: boolean }>`
+  display: flex;
+  flex-direction: ${props => props.isCollapsed ? 'column' : 'row'};
+  gap: 8px;
+  align-items: center;
+`;
+
 export const AddButton = styled.button<{ isCollapsed: boolean }>`
   width: 36px;
   height: 36px;
@@ -69,6 +76,33 @@ export const AddButton = styled.button<{ isCollapsed: boolean }>`
   &:hover {
     background-color: ${props => props.theme.colors.primaryHover};
     transform: translateY(-1px);
+  }
+`;
+
+export const ProfileButton = styled.button<{ isCollapsed: boolean }>`
+  width: 36px;
+  height: 36px;
+  border-radius: ${props => props.theme.borderRadius.md};
+  background-color: ${props => props.theme.colors.bgHover};
+  color: ${props => props.theme.colors.textSecondary};
+  border: 1px solid ${props => props.theme.colors.borderColor};
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+
+  &:hover {
+    background-color: ${props => props.theme.colors.borderColor};
+    color: ${props => props.theme.colors.textPrimary};
+    transform: translateY(-1px);
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
   }
 `;
 
