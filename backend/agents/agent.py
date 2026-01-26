@@ -1,10 +1,17 @@
-"""Conversational Paper Reading Agent - Using generate_content with manual history"""
+"""Conversational Paper Reading Agent - Hybrid Design with Modular Steps"""
 
 import logging
 from typing import List, Dict, Any, Callable
 from google.genai import types
 
-from .prompts import CONVERSATIONAL_SYSTEM_PROMPT, STEP1_INITIAL_PROMPT, USER_PROFILE_TEMPLATE
+from .prompts import (
+    META_SYSTEM_PROMPT,
+    STEP1_INITIAL_PROMPT,
+    USER_PROFILE_TEMPLATE,
+    STEP_NAMES,
+    get_step_prompt,
+    get_step_name,
+)
 from .tools import create_conversational_tools
 from .image_extractor import OnDemandImageExtractor
 
@@ -60,6 +67,9 @@ class ConversationalPaperAgent:
         self.user_profile = user_profile or {}
         self.add_key_point_callback = add_key_point_callback
 
+        # Track current reading step (1-6, None means not started)
+        self.current_step: int = None
+
         # Create on-demand image extractor
         self.image_extractor = OnDemandImageExtractor(
             pdf_path=pdf_path,
@@ -83,13 +93,11 @@ class ConversationalPaperAgent:
         Returns:
             Initial Step 1 response from the agent (or last response if restored)
         """
-        # Create base system prompt with language
-        self.system_prompt = CONVERSATIONAL_SYSTEM_PROMPT
-        self.system_prompt += f"\n\n**Response Language**: Always respond in {self.language}."
-
         # If restoring from saved state, just return last assistant response
         if self._is_restored and self.conversation_history:
             logger.info(f"Session restored: {len(self.conversation_history)} messages, {len(self.extracted_images)} images")
+            # Try to restore current step from history (default to step 1)
+            self.current_step = 1
             for msg in reversed(self.conversation_history):
                 if msg["role"] == "assistant":
                     return msg["content"]
@@ -110,10 +118,8 @@ class ConversationalPaperAgent:
         """
         Streaming version of start_session.
         """
-        self.system_prompt = CONVERSATIONAL_SYSTEM_PROMPT
-        self.system_prompt += f"\n\n**Response Language**: Always respond in {self.language}."
-
         if self._is_restored and self.conversation_history:
+            self.current_step = 1  # Restore to step 1 by default
             for msg in reversed(self.conversation_history):
                 if msg["role"] == "assistant":
                     yield {"response": msg["content"]}
@@ -213,6 +219,10 @@ class ConversationalPaperAgent:
                     status_msg = "Executing: Analyzing figure details"
                 elif fc.name == "update_user_profile":
                     status_msg = "Executing: Updating user profile"
+                elif fc.name == "execute_step":
+                    step_num = fc.args.get('step_number', 1) if fc.args else 1
+                    step_name = get_step_name(step_num)
+                    status_msg = f"Transitioning to: {step_name}"
                 yield status_msg
 
                 result = self._execute_function(fc)
@@ -249,10 +259,28 @@ class ConversationalPaperAgent:
         }
 
     def _build_system_prompt(self) -> str:
-        """Build full system prompt with extracted images context and user profile."""
-        images_context = self._build_extracted_images_context()
+        """Build full system prompt with user profile, current step, and extracted images context."""
+        # Build user profile context
         profile_context = self._build_user_profile_context()
-        return self.system_prompt + profile_context + images_context
+
+        # Build base meta prompt with user profile and language
+        base_prompt = META_SYSTEM_PROMPT.format(
+            user_profile_context=profile_context,
+            language=self.language
+        )
+
+        # Add current step's detailed instructions if we're in a step
+        if self.current_step:
+            step_prompt = get_step_prompt(self.current_step)
+            step_name = get_step_name(self.current_step)
+            if step_prompt:
+                base_prompt += f"\n\n## Current Step: {step_name}\n{step_prompt}"
+
+        # Add extracted images context
+        images_context = self._build_extracted_images_context()
+        base_prompt += images_context
+
+        return base_prompt
 
     def _build_user_profile_context(self) -> str:
         """Build context string showing user profile information."""
@@ -422,6 +450,10 @@ class ConversationalPaperAgent:
                         status_msg = "Executing: Analyzing figure details"
                     elif fc.name == "update_user_profile":
                         status_msg = "Executing: Updating user profile"
+                    elif fc.name == "execute_step":
+                        step_num = fc.args.get('step_number', 1) if fc.args else 1
+                        step_name = get_step_name(step_num)
+                        status_msg = f"Transitioning to: {step_name}"
                     self.status_callback(status_msg)
 
                 try:
@@ -620,6 +652,38 @@ class ConversationalPaperAgent:
                     logger.error(f"✗ Failed to update profile: {e}", exc_info=True)
                     return {"success": False, "error": str(e)}
 
+            elif function_call.name == "execute_step":
+                step_number = args.get("step_number", 1)
+                reason = args.get("reason", "")
+                logger.info(f"📖 Execute step {step_number}: {reason}")
+
+                # Validate step number
+                if step_number < 1 or step_number > 6:
+                    return {
+                        "success": False,
+                        "error": f"Invalid step number {step_number}. Must be 1-6."
+                    }
+
+                # Get step details
+                step_name = get_step_name(step_number)
+                step_prompt = get_step_prompt(step_number)
+
+                # Update current step
+                previous_step = self.current_step
+                self.current_step = step_number
+
+                logger.info(f"✓ Transitioned from step {previous_step} to step {step_number} ({step_name})")
+
+                return {
+                    "success": True,
+                    "step_number": step_number,
+                    "step_name": step_name,
+                    "previous_step": previous_step,
+                    "reason": reason,
+                    "step_instructions": step_prompt,
+                    "message": f"Now in Step {step_number}: {step_name}. Follow the step instructions to guide the user."
+                }
+
             else:
                 logger.error(f"✗ Unknown function: {function_call.name}")
                 return {"success": False, "error": f"Unknown function: {function_call.name}"}
@@ -643,3 +707,24 @@ class ConversationalPaperAgent:
     def get_extracted_images(self) -> List[Dict]:
         """Get list of all extracted images."""
         return self.extracted_images
+
+    def get_current_step(self) -> int:
+        """Get the current reading step number (1-6, or None if not started)."""
+        return self.current_step
+
+    def get_current_step_name(self) -> str:
+        """Get the human-readable name of the current step."""
+        if self.current_step:
+            return get_step_name(self.current_step)
+        return "Not started"
+
+    def set_current_step(self, step_number: int) -> None:
+        """
+        Manually set the current step (useful for session restoration).
+
+        Args:
+            step_number: Step number (1-6)
+        """
+        if 1 <= step_number <= 6:
+            self.current_step = step_number
+            logger.info(f"Current step manually set to {step_number} ({get_step_name(step_number)})")

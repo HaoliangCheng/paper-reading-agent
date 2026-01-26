@@ -1,7 +1,41 @@
-"""Conversational Agent Tool Definitions - Design 4 (On-Demand)"""
+"""Conversational Agent Tool Definitions - Hybrid Design (Meta Agent + Modular Steps)"""
 
 from typing import List, Dict, Any
 from google.genai import types
+
+
+def create_execute_step_tool() -> types.FunctionDeclaration:
+    """Create the execute_step function declaration for step transitions."""
+    return types.FunctionDeclaration(
+        name="execute_step",
+        description="""Transition to a specific reading step. Call this when:
+- User is ready to move to the next phase ("let's continue", "next", "move on")
+- User explicitly asks for a different step ("show me the math", "find the code")
+- User wants to revisit a previous step ("go back to context")
+- Starting a new session (call with step 1)
+
+Steps:
+1 = Quick Scan (what is this paper?)
+2 = Context Building (why does this paper exist?)
+3 = Methodology (how do they solve it?)
+4 = Critical Analysis (is it still relevant?)
+5 = Math Understanding (deep dive into equations)
+6 = Code Analysis (implementation details)""",
+        parameters={
+            "type": "object",
+            "properties": {
+                "step_number": {
+                    "type": "integer",
+                    "description": "Step to transition to (1-6)"
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Brief reason for this transition (e.g., 'user asked to continue', 'user wants math details')"
+                }
+            },
+            "required": ["step_number", "reason"]
+        }
+    )
 
 
 def create_update_user_profile_tool() -> types.FunctionDeclaration:
@@ -32,14 +66,19 @@ Only add truly relevant insights that would help personalize future explanations
 
 def create_conversational_tools(extracted_images: List[Dict] = None, include_profile_tool: bool = True) -> List[types.FunctionDeclaration]:
     """
-    Create function declarations for the conversational agent (Design 4).
+    Create function declarations for the conversational agent (Hybrid Design).
 
     Tools:
     1. extract_images - Extract NEW figures from specified pages
     2. display_images - Show already-extracted figures
+    3. explain_images - Get detailed explanation of a specific image
+    4. web_search - Search web for current information
+    5. execute_step - Transition between reading steps
+    6. update_user_profile - Save insights about user (optional)
 
     Args:
         extracted_images: List of already extracted images with descriptions
+        include_profile_tool: Whether to include the user profile tool
 
     Returns:
         List of FunctionDeclaration objects
@@ -174,7 +213,13 @@ This tool uses Google Search grounding to find relevant web sources.""",
         }
     )
 
-    tools = [extract_images_declaration, display_images_declaration, explain_images_declaration, web_search_declaration]
+    tools = [
+        extract_images_declaration,
+        display_images_declaration,
+        explain_images_declaration,
+        web_search_declaration,
+        create_execute_step_tool(),  # Add step transition tool
+    ]
 
     if include_profile_tool:
         tools.append(create_update_user_profile_tool())
