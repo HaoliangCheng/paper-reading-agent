@@ -1,3 +1,10 @@
+export interface ReadingPlanItem {
+  step: number;
+  title: string;
+  description: string;
+  key_topics: string[];
+}
+
 export interface Paper {
   id: string;
   title: string;
@@ -5,6 +12,7 @@ export interface Paper {
   language: string;
   timestamp: string;
   summary?: string;
+  reading_plan?: ReadingPlanItem[];
 }
 
 export interface Message {

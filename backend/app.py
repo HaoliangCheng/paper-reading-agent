@@ -57,15 +57,15 @@ init_database()
 
 def _parse_step1_response(response_text: str, fallback_title: str) -> tuple:
     """
-    Parse Step 1 response to extract title and summary.
-    Step 1 should return JSON with 'title' and 'summary' fields.
+    Parse Step 1 response to extract title, summary, and reading_plan.
+    Step 1 should return JSON with 'title', 'summary', and 'reading_plan' fields.
 
     Args:
         response_text: Raw response from Step 1
         fallback_title: Fallback title (usually filename) if parsing fails
 
     Returns:
-        Tuple of (title, summary)
+        Tuple of (title, summary, reading_plan)
     """
     try:
         # Try to extract JSON from response
@@ -73,21 +73,36 @@ def _parse_step1_response(response_text: str, fallback_title: str) -> tuple:
         text = re.sub(r'^```json\s*', '', text)
         text = re.sub(r'\s*```$', '', text)
 
-        # Try to find JSON object in the text
-        json_match = re.search(r'\{[^{}]*"title"[^{}]*"summary"[^{}]*\}|\{[^{}]*"summary"[^{}]*"title"[^{}]*\}', text, re.DOTALL)
-        if json_match:
-            text = json_match.group()
+        # Try to find JSON object in the text (more permissive regex for nested objects)
+        # Look for the outermost JSON object
+        brace_count = 0
+        start_idx = -1
+        end_idx = -1
+        for i, char in enumerate(text):
+            if char == '{':
+                if brace_count == 0:
+                    start_idx = i
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0 and start_idx != -1:
+                    end_idx = i + 1
+                    break
+
+        if start_idx != -1 and end_idx != -1:
+            text = text[start_idx:end_idx]
 
         data = json.loads(text)
         title = data.get('title', '').strip() or fallback_title
         summary = data.get('summary', response_text).strip()
+        reading_plan = data.get('reading_plan', [])
 
-        return title, summary
+        return title, summary, reading_plan
 
     except (json.JSONDecodeError, AttributeError) as e:
         logger.warning(f"Could not parse Step 1 JSON: {e}")
         # Return the whole response as summary and use fallback title
-        return fallback_title, response_text
+        return fallback_title, response_text, []
 
 
 @app.route('/api/analyze', methods=['POST'])
@@ -141,10 +156,11 @@ def analyze_paper():
 
         def generate():
             try:
-                yield f"data: {json.dumps({'status': 'Uploading to Gemini...'})}\n\n"
+                yield f"data: {json.dumps({'status': 'Uploading to Gemini'})}\n\n"
                 gemini_file = llm_provider.upload_file(file_path)
 
                 # Get user profile for personalization
+                logger.info(f"Creating agent object for paper {paper_id}")
                 user_profile = get_user_profile()
 
                 agent = ConversationalPaperAgent(
@@ -164,10 +180,10 @@ def analyze_paper():
                     if isinstance(update, dict) and 'response' in update:
                         step1_content = update['response']
                         extracted_images = agent.get_extracted_images()
-                        
-                        # Parse title and summary
-                        paper_title, step1_summary = _parse_step1_response(step1_content, original_filename)
-                        
+
+                        # Parse title, summary, and reading_plan
+                        paper_title, step1_summary, reading_plan = _parse_step1_response(step1_content, original_filename)
+
                         # Store session
                         reading_sessions[paper_id] = {
                             'agent': agent,
@@ -176,7 +192,7 @@ def analyze_paper():
                             'paper_folder': paper_folder,
                             'pdf_path': file_path
                         }
-                        
+
                         # Save to database
                         save_reading_session(paper_id, extracted_images)
                         paper_data = {
@@ -185,7 +201,8 @@ def analyze_paper():
                             'file_path': file_path,
                             'gemini_file_name': gemini_file.name,
                             'language': language,
-                            'summary': step1_summary
+                            'summary': step1_summary,
+                            'reading_plan': reading_plan
                         }
                         save_paper(paper_data)
                         save_message({
@@ -199,6 +216,7 @@ def analyze_paper():
                             'id': paper_id,
                             'title': paper_title,
                             'response': step1_summary,
+                            'reading_plan': reading_plan,
                             'extracted_images': extracted_images
                         })}\n\n"
                     else:
@@ -298,20 +316,6 @@ def chat():
                     status_queue.append(s)
                 
                 agent.status_callback = agent_status_callback
-
-                # We need to run agent.send_message and periodically check status_queue
-                # But since send_message is synchronous, we'll just manually trigger status updates 
-                # inside agent.py and we need to yield them here.
-                # Actually, if we make send_message take the callback, it might be easier.
-                
-                # Let's use a simpler approach: modify agent.py to yield statuses? 
-                # No, let's keep it simple for now and just use the callback to update a shared state 
-                # or just modify send_message to be a generator.
-                
-                # Best approach for Flask: use a queue and a separate thread, but that's complex.
-                # Since we are already in a generator, let's just make send_message a generator in agent.py
-                
-                # RE-THINK: Let's just make agent.send_message yield statuses.
                 
                 for update in agent.send_message_stream(message):
                     if isinstance(update, dict) and 'response' in update:

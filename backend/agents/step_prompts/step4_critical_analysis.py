@@ -35,5 +35,5 @@ Re-read the paper with a critical eye. Help the user understand the paper's curr
 - Always cite sources from search results
 
 ### Ending
-After the critical analysis, ask if the user has questions. Offer to dive into mathematical derivations (Step 5) or look at code implementations (Step 6) if relevant.
+After the critical analysis, ask the user if they have any questions about current content and what do you plan to explain next, check if they want to move on to the next topic or they have interest in other topics.
 """

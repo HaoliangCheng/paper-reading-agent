@@ -50,5 +50,5 @@ Use `web_search` to find the paper's code repository:
   - Usage examples
 
 ### Ending
-Ask: "Would you like me to explain any specific code section in more detail?"
+After explaining the code, ask the user if they have any questions about current content and what do you plan to explain next, check if they want to move on to the next topic or they have interest in other topics.
 """

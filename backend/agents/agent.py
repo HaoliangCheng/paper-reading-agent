@@ -103,8 +103,9 @@ class ConversationalPaperAgent:
                     return msg["content"]
             return ""
 
-        # Generate Step 1 automatically with the PDF
-        logger.info("Starting new session, generating Step 1...")
+        # Start at Step 1 directly (no need for execute_step tool call)
+        self.current_step = 1
+        logger.info("Starting new session at Step 1 (Quick Scan)...")
         response = self._generate_response(STEP1_INITIAL_PROMPT)
 
         self.conversation_history.append({
@@ -126,6 +127,10 @@ class ConversationalPaperAgent:
                     return
             yield {"response": ""}
             return
+
+        # Start at Step 1 directly (no need for execute_step tool call)
+        self.current_step = 1
+        logger.info("Starting new session at Step 1 (Quick Scan) [streaming]...")
 
         # Use send_message_stream logic for Step 1
         for update in self.send_message_stream(STEP1_INITIAL_PROMPT):
@@ -184,7 +189,8 @@ class ConversationalPaperAgent:
         tools = [types.Tool(function_declarations=create_conversational_tools(self.extracted_images))]
         config = types.GenerateContentConfig(
             system_instruction=full_system_prompt,
-            tools=tools
+            tools=tools,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
         )
 
         yield "Thinking"
@@ -231,10 +237,14 @@ class ConversationalPaperAgent:
                 )
 
             contents.append(types.Content(role="user", parts=function_response_parts))
-            
+
             # Update tools/config
             tools = [types.Tool(function_declarations=create_conversational_tools(self.extracted_images))]
-            config = types.GenerateContentConfig(system_instruction=self._build_system_prompt(), tools=tools)
+            config = types.GenerateContentConfig(
+                system_instruction=self._build_system_prompt(),
+                tools=tools,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
+            )
 
             yield "Thinking"
             response = self.client.models.generate_content(
@@ -379,7 +389,8 @@ class ConversationalPaperAgent:
 
         config = types.GenerateContentConfig(
             system_instruction=full_system_prompt,
-            tools=tools
+            tools=tools,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
         )
 
         # Generate response
@@ -484,7 +495,8 @@ class ConversationalPaperAgent:
             tools = [types.Tool(function_declarations=create_conversational_tools(self.extracted_images))]
             config = types.GenerateContentConfig(
                 system_instruction=full_system_prompt,
-                tools=tools
+                tools=tools,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
             )
 
             # Generate next response
@@ -654,8 +666,9 @@ class ConversationalPaperAgent:
 
             elif function_call.name == "execute_step":
                 step_number = args.get("step_number", 1)
+                mode = args.get("mode", "transition")
                 reason = args.get("reason", "")
-                logger.info(f"📖 Execute step {step_number}: {reason}")
+                logger.info(f"📖 Execute step {step_number} (mode={mode}): {reason}")
 
                 # Validate step number
                 if step_number < 1 or step_number > 6:
@@ -672,17 +685,31 @@ class ConversationalPaperAgent:
                 previous_step = self.current_step
                 self.current_step = step_number
 
-                logger.info(f"✓ Transitioned from step {previous_step} to step {step_number} ({step_name})")
-
-                return {
-                    "success": True,
-                    "step_number": step_number,
-                    "step_name": step_name,
-                    "previous_step": previous_step,
-                    "reason": reason,
-                    "step_instructions": step_prompt,
-                    "message": f"Now in Step {step_number}: {step_name}. Follow the step instructions to guide the user."
-                }
+                if mode == "qa":
+                    # Q&A mode: stay in current step, just answer the question
+                    logger.info(f"✓ Q&A mode in step {step_number} ({step_name})")
+                    return {
+                        "success": True,
+                        "mode": "qa",
+                        "step_number": step_number,
+                        "step_name": step_name,
+                        "reason": reason,
+                        "action_required": "Answer the user's question directly. Use the current step context but do NOT regenerate the full step content.",
+                        "step_context": step_prompt
+                    }
+                else:
+                    # Transition mode: generate full step content
+                    logger.info(f"✓ Transitioned from step {previous_step} to step {step_number} ({step_name})")
+                    return {
+                        "success": True,
+                        "mode": "transition",
+                        "step_number": step_number,
+                        "step_name": step_name,
+                        "previous_step": previous_step,
+                        "reason": reason,
+                        "action_required": f"IMPORTANT: You MUST now immediately generate the FULL Step {step_number} ({step_name}) content. Do NOT just acknowledge - perform the complete step analysis now.",
+                        "step_instructions": step_prompt
+                    }
 
             else:
                 logger.error(f"✗ Unknown function: {function_call.name}")

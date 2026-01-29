@@ -47,7 +47,5 @@ Offer exercises for the user:
 - "Try computing this for a 2x2 example"
 
 ### Ending
-Ask: "Would you like to try deriving any equation yourself? I can check your work or provide hints."
-
-Offer to move to code analysis if available.
+After explaining the mathematics, ask the user if they have any questions about current content and what do you plan to explain next, check if they want to move on to the next topic or they have interest in other topics.
 """

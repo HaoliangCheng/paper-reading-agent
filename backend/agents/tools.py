@@ -5,14 +5,19 @@ from google.genai import types
 
 
 def create_execute_step_tool() -> types.FunctionDeclaration:
-    """Create the execute_step function declaration for step transitions."""
+    """Create the execute_step function declaration for step tracking."""
     return types.FunctionDeclaration(
         name="execute_step",
-        description="""Transition to a specific reading step. Call this when:
-- User is ready to move to the next phase ("let's continue", "next", "move on")
-- User explicitly asks for a different step ("show me the math", "find the code")
-- User wants to revisit a previous step ("go back to context")
-- Starting a new session (call with step 1)
+        description="""REQUIRED: Call this tool for EVERY user message to track the current step.
+
+Modes:
+1. **Q&A Mode** (mode="qa"): User asks a question, stay in current step
+   - Use when: "What is X?", "Can you explain?", "Tell me more about..."
+   - After this, answer the user's question (don't regenerate step content)
+
+2. **Transition Mode** (mode="transition"): User wants to move to a different step
+   - Use when: "no questions", "next", "continue", "I understand", "show me the math"
+   - After this, generate the FULL content for the new step
 
 Steps:
 1 = Quick Scan (what is this paper?)
@@ -26,14 +31,19 @@ Steps:
             "properties": {
                 "step_number": {
                     "type": "integer",
-                    "description": "Step to transition to (1-6)"
+                    "description": "The step number (1-6). Use current step for Q&A, or new step for transition."
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["qa", "transition"],
+                    "description": "qa = answering question (stay in step), transition = moving to new/different step"
                 },
                 "reason": {
                     "type": "string",
-                    "description": "Brief reason for this transition (e.g., 'user asked to continue', 'user wants math details')"
+                    "description": "Brief reason (e.g., 'user asked about attention mechanism', 'user ready to continue')"
                 }
             },
-            "required": ["step_number", "reason"]
+            "required": ["step_number", "mode", "reason"]
         }
     )
 

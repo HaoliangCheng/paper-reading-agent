@@ -33,5 +33,5 @@ Help the user understand HOW the authors solve the problem. Read the entire pape
 - Use `explain_images` to explain the figures you extracted.
 
 ### Ending
-After explaining the methodology, ask if the user has questions about how the method works. Check if they want to move on to critical analysis.
+After explaining the methodology, ask the user if they have any questions about current content and what do you plan to explain next, check if they want to move on to the next topic or they have interest in other topics.
 """

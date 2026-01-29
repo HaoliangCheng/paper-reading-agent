@@ -18,6 +18,7 @@ def init_database():
             gemini_file_name TEXT,
             language TEXT NOT NULL,
             summary TEXT,
+            reading_plan TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -60,6 +61,12 @@ def init_database():
         VALUES (1, '', '[]')
     ''')
 
+    # Migration: Add reading_plan column if it doesn't exist (for existing databases)
+    cursor.execute("PRAGMA table_info(papers)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'reading_plan' not in columns:
+        cursor.execute('ALTER TABLE papers ADD COLUMN reading_plan TEXT')
+
     conn.commit()
     conn.close()
 
@@ -67,11 +74,16 @@ def save_paper(paper_data):
     """Save a paper to the database"""
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
-    
+
+    # Convert reading_plan to JSON string if it's a list
+    reading_plan = paper_data.get('reading_plan', [])
+    if isinstance(reading_plan, list):
+        reading_plan = json.dumps(reading_plan)
+
     cursor.execute('''
-        INSERT OR REPLACE INTO papers 
-        (id, title, file_path, gemini_file_name, language, summary, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO papers
+        (id, title, file_path, gemini_file_name, language, summary, reading_plan, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         paper_data['id'],
         paper_data['title'],
@@ -79,9 +91,10 @@ def save_paper(paper_data):
         paper_data.get('gemini_file_name', ''),
         paper_data['language'],
         paper_data['summary'],
+        reading_plan,
         datetime.now().isoformat()
     ))
-    
+
     conn.commit()
     conn.close()
 
@@ -89,15 +102,21 @@ def get_all_papers():
     """Retrieve all papers from the database"""
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
-    
+
     cursor.execute('''
-        SELECT id, title, file_path, gemini_file_name, language, summary, created_at
-        FROM papers 
+        SELECT id, title, file_path, gemini_file_name, language, summary, reading_plan, created_at
+        FROM papers
         ORDER BY created_at DESC
     ''')
-    
+
     papers = []
     for row in cursor.fetchall():
+        reading_plan = []
+        if row[6]:
+            try:
+                reading_plan = json.loads(row[6])
+            except (json.JSONDecodeError, TypeError):
+                reading_plan = []
         papers.append({
             'id': row[0],
             'title': row[1],
@@ -105,9 +124,10 @@ def get_all_papers():
             'gemini_file_name': row[3],
             'language': row[4],
             'summary': row[5],
-            'timestamp': row[6]
+            'reading_plan': reading_plan,
+            'timestamp': row[7]
         })
-    
+
     conn.close()
     return papers
 
@@ -115,17 +135,23 @@ def get_paper_by_id(paper_id):
     """Retrieve a specific paper by ID"""
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
-    
+
     cursor.execute('''
-        SELECT id, title, file_path, gemini_file_name, language, summary, created_at
-        FROM papers 
+        SELECT id, title, file_path, gemini_file_name, language, summary, reading_plan, created_at
+        FROM papers
         WHERE id = ?
     ''', (paper_id,))
-    
+
     row = cursor.fetchone()
     conn.close()
-    
+
     if row:
+        reading_plan = []
+        if row[6]:
+            try:
+                reading_plan = json.loads(row[6])
+            except (json.JSONDecodeError, TypeError):
+                reading_plan = []
         return {
             'id': row[0],
             'title': row[1],
@@ -133,7 +159,8 @@ def get_paper_by_id(paper_id):
             'gemini_file_name': row[3],
             'language': row[4],
             'summary': row[5],
-            'timestamp': row[6]
+            'reading_plan': reading_plan,
+            'timestamp': row[7]
         }
     return None
 

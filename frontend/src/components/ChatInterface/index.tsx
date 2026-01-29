@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Paper, Message } from '../../types';
 import * as S from './ChatStyles';
 import MessageItem from '../MessageItem';
@@ -35,6 +35,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   messagesContainerRef,
   lastMessageRef,
 }) => {
+  const [showPlan, setShowPlan] = useState(false);
   if (!selectedPaper) {
     return (
       <S.Placeholder>
@@ -59,14 +60,43 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     <S.ChatContainer>
       <S.ChatHeader>
         <h2>{selectedPaper.title}</h2>
-        <S.ThemeToggleButton 
+        <S.ThemeToggleButton
           onClick={onToggleTheme}
           title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
           {isDarkMode ? '☀️' : '🌙'}
         </S.ThemeToggleButton>
       </S.ChatHeader>
-      
+
+      {selectedPaper?.reading_plan && selectedPaper.reading_plan.length > 0 && (
+        <S.ReadingPlanSection>
+          <S.PlanHeader onClick={() => setShowPlan(!showPlan)}>
+            <S.PlanToggleIcon $isOpen={showPlan}>▶</S.PlanToggleIcon>
+            Reading Plan ({selectedPaper.reading_plan.length} steps)
+          </S.PlanHeader>
+          {showPlan && (
+            <S.PlanList>
+              {selectedPaper.reading_plan.map((item) => (
+                <S.PlanItem key={item.step}>
+                  <S.StepNumber>{item.step}</S.StepNumber>
+                  <S.StepContent>
+                    <S.StepTitle>{item.title}</S.StepTitle>
+                    <S.StepDesc>{item.description}</S.StepDesc>
+                    {item.key_topics && item.key_topics.length > 0 && (
+                      <S.StepTopics>
+                        {item.key_topics.map((topic, idx) => (
+                          <S.TopicTag key={idx}>{topic}</S.TopicTag>
+                        ))}
+                      </S.StepTopics>
+                    )}
+                  </S.StepContent>
+                </S.PlanItem>
+              ))}
+            </S.PlanList>
+          )}
+        </S.ReadingPlanSection>
+      )}
+
       <S.MessagesArea ref={messagesContainerRef}>
         {messages.map((message, index) => (
           <MessageItem

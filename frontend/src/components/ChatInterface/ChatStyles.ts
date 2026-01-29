@@ -128,3 +128,115 @@ export const PlaceholderIcon = styled.div`
   margin-bottom: 24px;
   filter: drop-shadow(0 4px 6px ${props => props.theme.colors.shadow});
 `;
+
+// Reading Plan Styles
+export const ReadingPlanSection = styled.div`
+  margin: 0;
+  padding: 12px 16px;
+  background-color: ${props => props.theme.colors.bgSecondary};
+  border-bottom: 1px solid ${props => props.theme.colors.borderColor};
+`;
+
+export const PlanHeader = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background-color: ${props => props.theme.colors.bgHover};
+  border: 1px solid ${props => props.theme.colors.borderColor};
+  border-radius: ${props => props.theme.borderRadius.md};
+  color: ${props => props.theme.colors.textPrimary};
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: ${props => props.theme.colors.borderColor};
+  }
+`;
+
+export const PlanToggleIcon = styled.span<{ $isOpen: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  transform: ${props => props.$isOpen ? 'rotate(90deg)' : 'rotate(0deg)'};
+  transition: transform 0.2s;
+`;
+
+export const PlanList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 0 4px;
+`;
+
+export const PlanItem = styled.div`
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background-color: ${props => props.theme.colors.bgTertiary};
+  border: 1px solid ${props => props.theme.colors.borderColor};
+  border-radius: ${props => props.theme.borderRadius.md};
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: ${props => props.theme.colors.primary};
+    box-shadow: 0 2px 8px ${props => props.theme.colors.shadow};
+  }
+`;
+
+export const StepNumber = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  background-color: ${props => props.theme.colors.primary};
+  color: white;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+`;
+
+export const StepContent = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+export const StepTitle = styled.div`
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: ${props => props.theme.colors.textPrimary};
+`;
+
+export const StepDesc = styled.div`
+  font-size: 0.8rem;
+  color: ${props => props.theme.colors.textSecondary};
+  line-height: 1.4;
+`;
+
+export const StepTopics = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+`;
+
+export const TopicTag = styled.span`
+  display: inline-block;
+  padding: 2px 8px;
+  background-color: ${props => props.theme.colors.bgHover};
+  border: 1px solid ${props => props.theme.colors.borderColor};
+  border-radius: 12px;
+  font-size: 0.7rem;
+  color: ${props => props.theme.colors.textSecondary};
+`;

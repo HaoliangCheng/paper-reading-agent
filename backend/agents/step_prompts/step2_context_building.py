@@ -31,5 +31,5 @@ Explain in this order:
 - Use `explain_images` to explain the figures you extracted.
 
 ### Ending
-After explaining the context, ask the user if they have questions about the motivation and background. Check if they want to move on to understanding the methodology.
+After explaining the context, ask the user if they have any questions about current content and what do you plan to explain next, check if they want to move on to the next topic or they have interest in other topics.
 """
