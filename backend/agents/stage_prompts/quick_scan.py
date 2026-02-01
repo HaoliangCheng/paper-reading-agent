@@ -4,7 +4,7 @@
 QUICK_SCAN_SUMMARY_PROMPT = """## Quick Scan: Paper Overview
 
 ### Goal
-Provide a clear, accessible summary of what this paper is about. Help the user get a first impression without diving into technical details.
+Based on the paper title, abstract, and key figures, provide what this paper is about. Help the user get a first impression without diving into technical details.
 
 ### Focus Areas
 - **Paper title**: What does it tell us about the topic?
@@ -18,7 +18,7 @@ Provide a clear, accessible summary of what this paper is about. Help the user g
 
 ### Image Handling - IMPORTANT
 - Use `extract_images` to extract key figures (overview diagrams, teaser figures, architecture diagrams)
-- **ALWAYS display images inline with your explanation** - never separate them
+- ALWAYS display images inline with your explanation** - never separate them
 - When you mention a figure, immediately show it and explain it together
 - Format: Explain the concept, show the image, then elaborate on what the image shows
 
