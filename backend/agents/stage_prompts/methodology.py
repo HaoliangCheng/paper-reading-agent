@@ -1,6 +1,6 @@
-"""Step 3: Methodology Understanding - How they solve the problem."""
+"""Methodology Stage - How they solve the problem."""
 
-STEP_3_PROMPT = """## Step 3: Methodology Understanding
+METHODOLOGY_PROMPT = """## Methodology Understanding
 
 ### Goal
 Help the user understand HOW the authors solve the problem. Read the entire paper but SKIP heavy mathematical derivations and proofs.
@@ -19,18 +19,15 @@ Help the user understand HOW the authors solve the problem. Read the entire pape
 5. **Results**: What did they achieve?
 
 ### What NOT to Do
-- Do NOT repeat information from Steps 1-2
-- Do NOT dive into heavy math derivations (save for Step 5)
+- Do NOT repeat information from previous stages
+- Do NOT dive into heavy math derivations (save for Math Understanding)
 - Use intuitive explanations instead of formal notation
 
-### Tool Usage
-- Use `extract_images` to show:
-  - Architecture/pipeline diagrams
-  - Method illustrations
-  - Result figures and tables
-  - Comparison charts
-- Use `display_images` to show the figures you extracted.
-- Use `explain_images` to explain the figures you extracted.
+### Image Handling
+- Use `extract_images` for: architecture diagrams, method illustrations, result figures, comparison charts
+- Use `display_images` for already-extracted figures
+- **ALWAYS display images inline with your explanation** - when you mention a figure, show it immediately and explain it together
+- Never list figures separately from their explanations
 
 ### Ending
 After explaining the methodology, ask the user if they have any questions about current content and what do you plan to explain next, check if they want to move on to the next topic or they have interest in other topics.

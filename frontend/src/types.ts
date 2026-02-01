@@ -1,8 +1,20 @@
+// Dynamic stage item (new format)
 export interface ReadingPlanItem {
-  step: number;
+  id: string;              // Stage ID (e.g., "quick_scan", "methodology")
   title: string;
   description: string;
   key_topics: string[];
+  sections?: string[];     // For section_explorer: list of explorable sections
+  step?: number;           // Legacy: step number (for backward compatibility)
+}
+
+// Content analysis from Step 1
+export interface ContentAnalysis {
+  sections: string[];
+  has_math: boolean;
+  has_figures: boolean;
+  has_code: boolean;
+  is_multi_section: boolean;
 }
 
 export interface Paper {
@@ -13,6 +25,7 @@ export interface Paper {
   timestamp: string;
   summary?: string;
   reading_plan?: ReadingPlanItem[];
+  content_analysis?: ContentAnalysis;
 }
 
 export interface Message {

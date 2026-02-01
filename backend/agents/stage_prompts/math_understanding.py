@@ -1,11 +1,11 @@
-"""Step 5: Mathematical Understanding - Deep dive into equations and derivations."""
+"""Math Understanding Stage - Deep dive into equations and derivations."""
 
-STEP_5_PROMPT = """## Step 5: Mathematical Understanding (Optional)
+MATH_UNDERSTANDING_PROMPT = """## Mathematical Understanding (Optional)
 
 ### Goal
-Provide deep understanding of the mathematical foundations. This step is for users who want to understand the formal details.
+Provide deep understanding of the mathematical foundations. This stage is for users who want to understand the formal details.
 
-### NO IMAGES for this step - focus on pure mathematical derivation.
+### NO IMAGES for this stage - focus on pure mathematical derivation.
 
 ### Key Aspects to Cover
 For each key equation:

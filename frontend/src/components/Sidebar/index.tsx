@@ -113,7 +113,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         </S.PaperList>
       </S.HistorySection>
 
-      <S.SidebarFooter>
+      {/* Collapse button hidden temporarily */}
+      {/* <S.SidebarFooter>
         <S.CollapseButton onClick={onToggleCollapse} title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
           {isCollapsed ? (
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -127,7 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </svg>
           )}
         </S.CollapseButton>
-      </S.SidebarFooter>
+      </S.SidebarFooter> */}
     </S.SidebarContainer>
   );
 };

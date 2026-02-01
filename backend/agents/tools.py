@@ -1,49 +1,54 @@
-"""Conversational Agent Tool Definitions - Hybrid Design (Meta Agent + Modular Steps)"""
+"""Conversational Agent Tool Definitions - Dynamic Stages Architecture"""
 
 from typing import List, Dict, Any
 from google.genai import types
 
 
 def create_execute_step_tool() -> types.FunctionDeclaration:
-    """Create the execute_step function declaration for step tracking."""
+    """Create the execute_step function declaration for stage tracking."""
     return types.FunctionDeclaration(
         name="execute_step",
-        description="""REQUIRED: Call this tool for EVERY user message to track the current step.
+        description="""REQUIRED: Call this tool for EVERY user message to track the current reading stage.
 
 Modes:
-1. **Q&A Mode** (mode="qa"): User asks a question, stay in current step
+1. **Q&A Mode** (mode="qa"): User asks a question, stay in current stage
    - Use when: "What is X?", "Can you explain?", "Tell me more about..."
-   - After this, answer the user's question (don't regenerate step content)
+   - After this, answer the user's question (don't regenerate stage content)
 
-2. **Transition Mode** (mode="transition"): User wants to move to a different step
+2. **Transition Mode** (mode="transition"): User wants to move to a different stage
    - Use when: "no questions", "next", "continue", "I understand", "show me the math"
-   - After this, generate the FULL content for the new step
+   - After this, generate the FULL content for the new stage
 
-Steps:
-1 = Quick Scan (what is this paper?)
-2 = Context Building (why does this paper exist?)
-3 = Methodology (how do they solve it?)
-4 = Critical Analysis (is it still relevant?)
-5 = Math Understanding (deep dive into equations)
-6 = Code Analysis (implementation details)""",
+Available Stages (use the reading_plan in context for this paper's specific stages):
+- quick_scan: What is this paper about?
+- context_and_contribution: Why does it exist and what did they achieve?
+- methodology: How do they solve it? (for single-method papers)
+- section_explorer: List sections for user to choose (for multi-section papers)
+- section_deep_dive: Explore a specific section (use with section_name)
+- math_understanding: Deep dive into equations
+- code_analysis: Implementation details""",
         parameters={
             "type": "object",
             "properties": {
-                "step_number": {
-                    "type": "integer",
-                    "description": "The step number (1-6). Use current step for Q&A, or new step for transition."
+                "stage_id": {
+                    "type": "string",
+                    "description": "The stage ID (e.g., 'quick_scan', 'methodology', 'section_deep_dive')"
                 },
                 "mode": {
                     "type": "string",
                     "enum": ["qa", "transition"],
-                    "description": "qa = answering question (stay in step), transition = moving to new/different step"
+                    "description": "qa = answering question (stay in stage), transition = moving to new stage"
                 },
                 "reason": {
                     "type": "string",
                     "description": "Brief reason (e.g., 'user asked about attention mechanism', 'user ready to continue')"
+                },
+                "section_name": {
+                    "type": "string",
+                    "description": "For section_deep_dive: the name of the section to explore"
                 }
             },
-            "required": ["step_number", "mode", "reason"]
+            "required": ["stage_id", "mode", "reason"]
         }
     )
 
@@ -76,14 +81,14 @@ Only add truly relevant insights that would help personalize future explanations
 
 def create_conversational_tools(extracted_images: List[Dict] = None, include_profile_tool: bool = True) -> List[types.FunctionDeclaration]:
     """
-    Create function declarations for the conversational agent (Hybrid Design).
+    Create function declarations for the conversational agent.
 
     Tools:
     1. extract_images - Extract NEW figures from specified pages
     2. display_images - Show already-extracted figures
     3. explain_images - Get detailed explanation of a specific image
     4. web_search - Search web for current information
-    5. execute_step - Transition between reading steps
+    5. execute_step - Transition between reading stages
     6. update_user_profile - Save insights about user (optional)
 
     Args:
@@ -228,7 +233,7 @@ This tool uses Google Search grounding to find relevant web sources.""",
         display_images_declaration,
         explain_images_declaration,
         web_search_declaration,
-        create_execute_step_tool(),  # Add step transition tool
+        create_execute_step_tool(),
     ]
 
     if include_profile_tool:

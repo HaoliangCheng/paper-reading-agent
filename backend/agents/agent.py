@@ -1,16 +1,19 @@
-"""Conversational Paper Reading Agent - Hybrid Design with Modular Steps"""
+"""Conversational Paper Reading Agent - Dynamic Stages with Parallel Quick Scan"""
 
 import logging
+import concurrent.futures
 from typing import List, Dict, Any, Callable
 from google.genai import types
 
 from .prompts import (
     META_SYSTEM_PROMPT,
-    STEP1_INITIAL_PROMPT,
+    QUICK_SCAN_INITIAL_PROMPT,
     USER_PROFILE_TEMPLATE,
-    STEP_NAMES,
-    get_step_prompt,
-    get_step_name,
+    STAGE_NAMES,
+    get_stage_prompt,
+    get_stage_name,
+    QUICK_SCAN_SUMMARY_PROMPT,
+    QUICK_SCAN_PLAN_PROMPT,
 )
 from .tools import create_conversational_tools
 from .image_extractor import OnDemandImageExtractor
@@ -67,8 +70,14 @@ class ConversationalPaperAgent:
         self.user_profile = user_profile or {}
         self.add_key_point_callback = add_key_point_callback
 
-        # Track current reading step (1-6, None means not started)
-        self.current_step: int = None
+        # Track current stage ID (string) - dynamic system
+        self.current_stage_id: str = None
+
+        # Store the dynamic reading plan from Quick Scan
+        self.reading_plan: list = []
+
+        # Track which section is being explored (for section_deep_dive)
+        self.current_section: str = None
 
         # Create on-demand image extractor
         self.image_extractor = OnDemandImageExtractor(
@@ -87,26 +96,25 @@ class ConversationalPaperAgent:
 
     def start_session(self) -> str:
         """
-        Start the conversational reading session and generate Step 1 automatically.
+        Start the conversational reading session and generate Quick Scan automatically.
         If restoring from saved state, just returns the last response.
 
         Returns:
-            Initial Step 1 response from the agent (or last response if restored)
+            Initial Quick Scan response from the agent (or last response if restored)
         """
         # If restoring from saved state, just return last assistant response
         if self._is_restored and self.conversation_history:
             logger.info(f"Session restored: {len(self.conversation_history)} messages, {len(self.extracted_images)} images")
-            # Try to restore current step from history (default to step 1)
-            self.current_step = 1
+            self.current_stage_id = 'quick_scan'
             for msg in reversed(self.conversation_history):
                 if msg["role"] == "assistant":
                     return msg["content"]
             return ""
 
-        # Start at Step 1 directly (no need for execute_step tool call)
-        self.current_step = 1
-        logger.info("Starting new session at Step 1 (Quick Scan)...")
-        response = self._generate_response(STEP1_INITIAL_PROMPT)
+        # Start at Quick Scan stage
+        self.current_stage_id = 'quick_scan'
+        logger.info("Starting new session at Quick Scan stage...")
+        response = self._generate_response(QUICK_SCAN_INITIAL_PROMPT)
 
         self.conversation_history.append({
             "role": "assistant",
@@ -117,10 +125,11 @@ class ConversationalPaperAgent:
 
     def start_session_stream(self):
         """
-        Streaming version of start_session.
+        Streaming version of start_session with parallel Quick Scan.
+        Runs summary generation (with tools) and plan generation (JSON only) in parallel.
         """
         if self._is_restored and self.conversation_history:
-            self.current_step = 1  # Restore to step 1 by default
+            self.current_stage_id = 'quick_scan'
             for msg in reversed(self.conversation_history):
                 if msg["role"] == "assistant":
                     yield {"response": msg["content"]}
@@ -128,20 +137,225 @@ class ConversationalPaperAgent:
             yield {"response": ""}
             return
 
-        # Start at Step 1 directly (no need for execute_step tool call)
-        self.current_step = 1
-        logger.info("Starting new session at Step 1 (Quick Scan) [streaming]...")
+        # Start at Quick Scan stage
+        self.current_stage_id = 'quick_scan'
+        logger.info("Starting new session at Quick Scan stage [streaming with parallel requests]")
 
-        # Use send_message_stream logic for Step 1
-        for update in self.send_message_stream(STEP1_INITIAL_PROMPT):
-            if isinstance(update, dict) and 'response' in update:
-                # We don't want to duplicate history here because send_message_stream already adds to it
-                # and Step 1 is special. But actually send_message_stream adds user prompt too.
-                # For Step 1, we might want to keep history clean or handle it specially.
-                # Let's just yield it.
-                yield update
-            else:
-                yield update
+        yield "Analyzing paper"
+
+        # Run summary and plan generation in parallel
+        summary_result = None
+        plan_result = None
+
+        def generate_summary():
+            """Generate summary with tools (text output)."""
+            return self._generate_quick_scan_summary()
+
+        def generate_plan():
+            """Generate plan without tools (JSON output)."""
+            return self._generate_quick_scan_plan()
+
+        yield "Running parallel analysis"
+
+        # Execute both requests in parallel using ThreadPoolExecutor
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            summary_future = executor.submit(generate_summary)
+            plan_future = executor.submit(generate_plan)
+
+            # Wait for both to complete
+            summary_result = summary_future.result()
+            plan_result = plan_future.result()
+
+        yield "Combining results"
+
+        # Combine results - summary becomes the response, plan contains the reading plan
+        final_response = summary_result.get('summary', '')
+        extracted_images = summary_result.get('extracted_images', [])
+
+        # Update the extractor's images if any were extracted
+        if extracted_images:
+            self.image_extractor.extracted_images = extracted_images
+            self.extracted_images = extracted_images
+
+        # Add to conversation history
+        self.conversation_history.append({
+            "role": "assistant",
+            "content": final_response
+        })
+
+        yield {
+            "response": final_response,
+            "title": plan_result.get('title', ''),
+            "reading_plan": plan_result.get('reading_plan', []),
+            "content_analysis": plan_result.get('content_analysis', {}),
+            "extracted_images": extracted_images
+        }
+
+    def _generate_quick_scan_summary(self) -> Dict:
+        """
+        Generate Quick Scan summary with tool support (text output).
+        This handles figure extraction and conversational summary.
+        """
+        logger.info("Generating Quick Scan summary (with tools)")
+
+        # Build system prompt for summary generation
+        profile_context = self._build_user_profile_context()
+        system_prompt = f"""You are a senior researcher helping users understand research papers.
+
+{QUICK_SCAN_SUMMARY_PROMPT}
+
+{profile_context}
+
+**Response Language**: Always respond in {self.language}.
+"""
+
+        # Build contents with PDF
+        contents = [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_uri(file_uri=self.file.uri, mime_type="application/pdf"),
+                    types.Part.from_text(text="Please provide a Quick Scan summary of this paper.")
+                ]
+            )
+        ]
+
+        # Create tools for image extraction
+        tools = [types.Tool(function_declarations=create_conversational_tools(self.extracted_images))]
+
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            tools=tools,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
+        )
+
+        response = self.client.models.generate_content(
+            model=self.model_id,
+            contents=contents,
+            config=config
+        )
+
+        # Handle function calls (mainly for image extraction)
+        max_iterations = 5
+        iteration = 0
+        while iteration < max_iterations:
+            iteration += 1
+            if not hasattr(response, 'function_calls') or not response.function_calls:
+                break
+
+            function_calls = response.function_calls
+            if response.candidates and response.candidates[0].content:
+                contents.append(response.candidates[0].content)
+
+            function_response_parts = []
+            for fc in function_calls:
+                result = self._execute_function(fc)
+                function_response_parts.append(
+                    types.Part.from_function_response(name=fc.name, response=result)
+                )
+
+            contents.append(types.Content(role="user", parts=function_response_parts))
+
+            # Update tools with new images
+            tools = [types.Tool(function_declarations=create_conversational_tools(self.extracted_images))]
+            config = types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                tools=tools,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
+            )
+
+            response = self.client.models.generate_content(
+                model=self.model_id,
+                contents=contents,
+                config=config
+            )
+
+        summary_text = self._extract_text_response(response)
+        logger.info(f"Quick Scan summary generated: {len(summary_text)} chars")
+
+        return {
+            'summary': summary_text,
+            'extracted_images': self.extracted_images
+        }
+
+    def _generate_quick_scan_plan(self) -> Dict:
+        """
+        Generate reading plan (JSON output only, no tools).
+        This analyzes paper structure and generates content_analysis + reading_plan.
+        """
+        import json
+        import re
+
+        logger.info("Generating Quick Scan plan (JSON only)")
+
+        # Build system prompt for plan generation
+        system_prompt = f"""You are a paper structure analyzer. Your task is to analyze the paper and output a JSON reading plan.
+
+{QUICK_SCAN_PLAN_PROMPT}
+"""
+
+        # Build contents with PDF
+        contents = [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_uri(file_uri=self.file.uri, mime_type="application/pdf"),
+                    types.Part.from_text(text="Analyze this paper's structure and generate a reading plan. Output ONLY valid JSON.")
+                ]
+            )
+        ]
+
+        # No tools for plan generation - just JSON output
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt
+        )
+
+        response = self.client.models.generate_content(
+            model=self.model_id,
+            contents=contents,
+            config=config
+        )
+
+        response_text = self._extract_text_response(response)
+        logger.info(f"Quick Scan plan response: {len(response_text)} chars")
+
+        # Parse JSON from response
+        try:
+            text = response_text.strip()
+            text = re.sub(r'^```json\s*', '', text)
+            text = re.sub(r'\s*```$', '', text)
+
+            # Find JSON object
+            brace_count = 0
+            start_idx = -1
+            end_idx = -1
+            for i, char in enumerate(text):
+                if char == '{':
+                    if brace_count == 0:
+                        start_idx = i
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0 and start_idx != -1:
+                        end_idx = i + 1
+                        break
+
+            if start_idx != -1 and end_idx != -1:
+                text = text[start_idx:end_idx]
+
+            data = json.loads(text)
+            return {
+                'title': data.get('title', ''),
+                'content_analysis': data.get('content_analysis', {}),
+                'reading_plan': data.get('reading_plan', [])
+            }
+        except (json.JSONDecodeError, AttributeError) as e:
+            logger.warning(f"Could not parse Quick Scan plan JSON: {e}")
+            return {
+                'title': '',
+                'content_analysis': {},
+                'reading_plan': []
+            }
 
     def send_message(self, user_message: str) -> str:
         """
@@ -153,10 +367,8 @@ class ConversationalPaperAgent:
         Returns:
             Agent's response text
         """
-        # Generate response (don't add to history yet - _build_contents handles current message)
         response = self._generate_response(user_message)
 
-        # Now add both user message and response to history
         self.conversation_history.append({
             "role": "user",
             "content": user_message
@@ -172,9 +384,8 @@ class ConversationalPaperAgent:
         """
         Send a user message and yield status updates and final response.
         """
-        # We need to capture the status updates. We'll temporarily override status_callback
         original_callback = self.status_callback
-        
+
         def streaming_callback(s):
             self._current_status = s
             if original_callback:
@@ -183,7 +394,6 @@ class ConversationalPaperAgent:
         self.status_callback = streaming_callback
         self._current_status = None
 
-        # Build contents
         contents = self._build_contents(user_message)
         full_system_prompt = self._build_system_prompt()
         tools = [types.Tool(function_declarations=create_conversational_tools(self.extracted_images))]
@@ -194,7 +404,7 @@ class ConversationalPaperAgent:
         )
 
         yield "Thinking"
-        
+
         response = self.client.models.generate_content(
             model=self.model_id,
             contents=contents,
@@ -215,7 +425,6 @@ class ConversationalPaperAgent:
 
             function_response_parts = []
             for fc in function_calls:
-                # Yield status for each function
                 status_msg = f"Executing: {fc.name}"
                 if fc.name == "extract_images":
                     status_msg = "Executing: Extracting figures"
@@ -226,9 +435,10 @@ class ConversationalPaperAgent:
                 elif fc.name == "update_user_profile":
                     status_msg = "Executing: Updating user profile"
                 elif fc.name == "execute_step":
-                    step_num = fc.args.get('step_number', 1) if fc.args else 1
-                    step_name = get_step_name(step_num)
-                    status_msg = f"Transitioning to: {step_name}"
+                    stage_id = fc.args.get('stage_id') if fc.args else None
+                    if stage_id:
+                        stage_name = get_stage_name(stage_id)
+                        status_msg = f"Transitioning to: {stage_name}"
                 yield status_msg
 
                 result = self._execute_function(fc)
@@ -238,7 +448,6 @@ class ConversationalPaperAgent:
 
             contents.append(types.Content(role="user", parts=function_response_parts))
 
-            # Update tools/config
             tools = [types.Tool(function_declarations=create_conversational_tools(self.extracted_images))]
             config = types.GenerateContentConfig(
                 system_instruction=self._build_system_prompt(),
@@ -256,11 +465,9 @@ class ConversationalPaperAgent:
         yield "Generating final response"
         result = self._extract_text_response(response)
 
-        # Update history
         self.conversation_history.append({"role": "user", "content": user_message})
         self.conversation_history.append({"role": "assistant", "content": result})
 
-        # Reset callback
         self.status_callback = original_callback
 
         yield {
@@ -269,22 +476,32 @@ class ConversationalPaperAgent:
         }
 
     def _build_system_prompt(self) -> str:
-        """Build full system prompt with user profile, current step, and extracted images context."""
-        # Build user profile context
+        """Build full system prompt with user profile, current stage, and extracted images context."""
         profile_context = self._build_user_profile_context()
 
-        # Build base meta prompt with user profile and language
         base_prompt = META_SYSTEM_PROMPT.format(
             user_profile_context=profile_context,
             language=self.language
         )
 
-        # Add current step's detailed instructions if we're in a step
-        if self.current_step:
-            step_prompt = get_step_prompt(self.current_step)
-            step_name = get_step_name(self.current_step)
-            if step_prompt:
-                base_prompt += f"\n\n## Current Step: {step_name}\n{step_prompt}"
+        # Add reading plan context if available
+        if self.reading_plan:
+            plan_str = "\n## Reading Plan for This Paper\n"
+            for stage in self.reading_plan:
+                stage_id = stage.get('id', '')
+                title = stage.get('title', '')
+                description = stage.get('description', '')
+                plan_str += f"- **{stage_id}**: {title} - {description}\n"
+            base_prompt += plan_str
+
+        # Add current stage's detailed instructions
+        if self.current_stage_id:
+            stage_prompt = get_stage_prompt(self.current_stage_id)
+            stage_name = get_stage_name(self.current_stage_id)
+            if stage_prompt:
+                base_prompt += f"\n\n## Current Stage: {stage_name}\n{stage_prompt}"
+                if self.current_stage_id == 'section_deep_dive' and self.current_section:
+                    base_prompt += f"\n\n**Currently Exploring Section**: {self.current_section}"
 
         # Add extracted images context
         images_context = self._build_extracted_images_context()
@@ -332,24 +549,16 @@ class ConversationalPaperAgent:
         """
         Build contents array from conversation history and current message.
         Always includes PDF file for context.
-
-        Args:
-            current_message: The current user message
-
-        Returns:
-            List of Content objects for generate_content
         """
         contents = []
 
-        # Add conversation history (truncate old messages if needed)
-        max_history_messages = 20  # Limit history to control tokens
+        max_history_messages = 20
         history_to_use = self.conversation_history[-max_history_messages:] if len(self.conversation_history) > max_history_messages else self.conversation_history
 
         for msg in history_to_use:
             role = msg["role"]
             content = msg["content"]
 
-            # Truncate very long messages
             if len(content) > 2000:
                 content = content[:2000] + "... [truncated]"
 
@@ -358,7 +567,6 @@ class ConversationalPaperAgent:
                 parts=[types.Part.from_text(text=content)]
             ))
 
-        # Add current message with PDF file (always include file for context)
         contents.append(types.Content(
             role="user",
             parts=[
@@ -373,17 +581,8 @@ class ConversationalPaperAgent:
         """
         Generate response using generate_content with manual history.
         Always includes PDF file for context.
-
-        Args:
-            message: User message
-
-        Returns:
-            Agent's response text
         """
-        # Build contents from history (always includes PDF)
         contents = self._build_contents(message)
-
-        # Build config with system instruction and tools
         full_system_prompt = self._build_system_prompt()
         tools = [types.Tool(function_declarations=create_conversational_tools(self.extracted_images))]
 
@@ -393,8 +592,7 @@ class ConversationalPaperAgent:
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
         )
 
-        # Generate response
-        logger.info(f"→ LLM Request ({len(contents)} content parts)...")
+        logger.info(f"→ LLM Request ({len(contents)} content parts)")
         if self.status_callback:
             self.status_callback("Thinking")
 
@@ -404,36 +602,23 @@ class ConversationalPaperAgent:
             config=config
         )
 
-        # Handle function calls
         response, contents = self._handle_function_calls(response, contents, config)
 
-        # Extract final text response
         if self.status_callback:
             self.status_callback("Generating final response")
-            
+
         result = self._extract_text_response(response)
         logger.info(f"← LLM Response: {len(result)} chars")
         return result
 
     def _handle_function_calls(self, response, contents: List, config) -> tuple:
-        """
-        Handle function calling loop with generate_content.
-
-        Args:
-            response: Initial LLM response
-            contents: Current contents list
-            config: Generate config
-
-        Returns:
-            Tuple of (final_response, updated_contents)
-        """
+        """Handle function calling loop with generate_content."""
         max_iterations = 10
         iteration = 0
 
         while iteration < max_iterations:
             iteration += 1
 
-            # Check for function calls
             if not hasattr(response, 'function_calls') or not response.function_calls:
                 logger.info(f"✓ Function call loop complete (iteration {iteration})")
                 break
@@ -441,16 +626,13 @@ class ConversationalPaperAgent:
             function_calls = response.function_calls
             logger.info(f"⚙ Function Call Round {iteration}: {[fc.name for fc in function_calls]}")
 
-            # Add model's response (with function calls) to contents
             if response.candidates and response.candidates[0].content:
                 contents.append(response.candidates[0].content)
 
-            # Execute all functions and collect responses
             function_response_parts = []
             for idx, fc in enumerate(function_calls):
                 logger.info(f"[{idx+1}/{len(function_calls)}] Executing: {fc.name}")
-                
-                # Update status for each function call
+
                 if self.status_callback:
                     status_msg = f"Executing: {fc.name}"
                     if fc.name == "extract_images":
@@ -462,9 +644,10 @@ class ConversationalPaperAgent:
                     elif fc.name == "update_user_profile":
                         status_msg = "Executing: Updating user profile"
                     elif fc.name == "execute_step":
-                        step_num = fc.args.get('step_number', 1) if fc.args else 1
-                        step_name = get_step_name(step_num)
-                        status_msg = f"Transitioning to: {step_name}"
+                        stage_id = fc.args.get('stage_id') if fc.args else None
+                        if stage_id:
+                            stage_name = get_stage_name(stage_id)
+                            status_msg = f"Transitioning to: {stage_name}"
                     self.status_callback(status_msg)
 
                 try:
@@ -484,13 +667,11 @@ class ConversationalPaperAgent:
                         )
                     )
 
-            # Add function responses to contents
             contents.append(types.Content(
                 role="user",
                 parts=function_response_parts
             ))
 
-            # Update config with latest extracted images
             full_system_prompt = self._build_system_prompt()
             tools = [types.Tool(function_declarations=create_conversational_tools(self.extracted_images))]
             config = types.GenerateContentConfig(
@@ -499,11 +680,10 @@ class ConversationalPaperAgent:
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
             )
 
-            # Generate next response
-            logger.info(f"→ Sending function responses to LLM...")
+            logger.info(f"→ Sending function responses to LLM")
             if self.status_callback:
                 self.status_callback("Thinking")
-                
+
             try:
                 response = self.client.models.generate_content(
                     model=self.model_id,
@@ -525,7 +705,6 @@ class ConversationalPaperAgent:
         logger.info(f"🔧 Function: {function_call.name}")
         args = dict(function_call.args) if function_call.args else {}
 
-        # Log arguments (truncate if too long)
         args_str = str(args)
         if len(args_str) > 200:
             logger.debug(f"📋 Args: {args_str[:200]}...")
@@ -638,7 +817,6 @@ class ConversationalPaperAgent:
                     if self.add_key_point_callback:
                         added = self.add_key_point_callback(key_point)
                         if added:
-                            # Update local profile as well
                             if 'key_points' not in self.user_profile:
                                 self.user_profile['key_points'] = []
                             if key_point not in self.user_profile['key_points']:
@@ -665,51 +843,50 @@ class ConversationalPaperAgent:
                     return {"success": False, "error": str(e)}
 
             elif function_call.name == "execute_step":
-                step_number = args.get("step_number", 1)
+                stage_id = args.get("stage_id", 'quick_scan')
                 mode = args.get("mode", "transition")
                 reason = args.get("reason", "")
-                logger.info(f"📖 Execute step {step_number} (mode={mode}): {reason}")
+                section_name = args.get("section_name", None)
 
-                # Validate step number
-                if step_number < 1 or step_number > 6:
-                    return {
-                        "success": False,
-                        "error": f"Invalid step number {step_number}. Must be 1-6."
-                    }
+                logger.info(f"📖 Execute stage '{stage_id}' (mode={mode}): {reason}")
 
-                # Get step details
-                step_name = get_step_name(step_number)
-                step_prompt = get_step_prompt(step_number)
+                stage_name = get_stage_name(stage_id)
+                stage_prompt = get_stage_prompt(stage_id)
 
-                # Update current step
-                previous_step = self.current_step
-                self.current_step = step_number
+                previous_stage = self.current_stage_id
+                self.current_stage_id = stage_id
+
+                if stage_id == 'section_deep_dive' and section_name:
+                    self.current_section = section_name
+                    logger.info(f"📖 Exploring section: {section_name}")
 
                 if mode == "qa":
-                    # Q&A mode: stay in current step, just answer the question
-                    logger.info(f"✓ Q&A mode in step {step_number} ({step_name})")
+                    logger.info(f"✓ Q&A mode in stage '{stage_id}' ({stage_name})")
                     return {
                         "success": True,
                         "mode": "qa",
-                        "step_number": step_number,
-                        "step_name": step_name,
+                        "stage_id": stage_id,
+                        "stage_name": stage_name,
                         "reason": reason,
-                        "action_required": "Answer the user's question directly. Use the current step context but do NOT regenerate the full step content.",
-                        "step_context": step_prompt
+                        "action_required": "Answer the user's question directly. Use the current stage context but do NOT regenerate the full stage content.",
+                        "stage_context": stage_prompt
                     }
                 else:
-                    # Transition mode: generate full step content
-                    logger.info(f"✓ Transitioned from step {previous_step} to step {step_number} ({step_name})")
-                    return {
+                    logger.info(f"✓ Transitioned from '{previous_stage}' to '{stage_id}' ({stage_name})")
+                    result = {
                         "success": True,
                         "mode": "transition",
-                        "step_number": step_number,
-                        "step_name": step_name,
-                        "previous_step": previous_step,
+                        "stage_id": stage_id,
+                        "stage_name": stage_name,
+                        "previous_stage": previous_stage,
                         "reason": reason,
-                        "action_required": f"IMPORTANT: You MUST now immediately generate the FULL Step {step_number} ({step_name}) content. Do NOT just acknowledge - perform the complete step analysis now.",
-                        "step_instructions": step_prompt
+                        "action_required": f"IMPORTANT: You MUST now immediately generate the FULL {stage_name} content. Do NOT just acknowledge - perform the complete stage analysis now.",
+                        "stage_instructions": stage_prompt
                     }
+                    if section_name:
+                        result["section_name"] = section_name
+                        result["action_required"] += f" Focus on the section: {section_name}"
+                    return result
 
             else:
                 logger.error(f"✗ Unknown function: {function_call.name}")
@@ -735,23 +912,33 @@ class ConversationalPaperAgent:
         """Get list of all extracted images."""
         return self.extracted_images
 
-    def get_current_step(self) -> int:
-        """Get the current reading step number (1-6, or None if not started)."""
-        return self.current_step
-
-    def get_current_step_name(self) -> str:
-        """Get the human-readable name of the current step."""
-        if self.current_step:
-            return get_step_name(self.current_step)
-        return "Not started"
-
-    def set_current_step(self, step_number: int) -> None:
+    def set_reading_plan(self, reading_plan: list) -> None:
         """
-        Manually set the current step (useful for session restoration).
+        Set the dynamic reading plan from Quick Scan response.
 
         Args:
-            step_number: Step number (1-6)
+            reading_plan: List of stage definitions from Quick Scan
         """
-        if 1 <= step_number <= 6:
-            self.current_step = step_number
-            logger.info(f"Current step manually set to {step_number} ({get_step_name(step_number)})")
+        self.reading_plan = reading_plan or []
+        logger.info(f"Reading plan set with {len(self.reading_plan)} stages")
+
+    def get_reading_plan(self) -> list:
+        """Get the current reading plan."""
+        return self.reading_plan
+
+    def set_current_stage(self, stage_id: str, section_name: str = None) -> None:
+        """
+        Set the current stage ID.
+
+        Args:
+            stage_id: Stage identifier (e.g., "quick_scan", "methodology")
+            section_name: Optional section name for section_deep_dive
+        """
+        self.current_stage_id = stage_id
+        if section_name:
+            self.current_section = section_name
+        logger.info(f"Current stage set to '{stage_id}'" + (f" (section: {section_name})" if section_name else ""))
+
+    def get_current_stage_id(self) -> str:
+        """Get the current stage ID."""
+        return self.current_stage_id

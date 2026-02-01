@@ -66,6 +66,14 @@ def init_database():
     columns = [col[1] for col in cursor.fetchall()]
     if 'reading_plan' not in columns:
         cursor.execute('ALTER TABLE papers ADD COLUMN reading_plan TEXT')
+    if 'content_analysis' not in columns:
+        cursor.execute('ALTER TABLE papers ADD COLUMN content_analysis TEXT')
+
+    # Migration: Add current_stage_id to reading_sessions
+    cursor.execute("PRAGMA table_info(reading_sessions)")
+    session_columns = [col[1] for col in cursor.fetchall()]
+    if 'current_stage_id' not in session_columns:
+        cursor.execute('ALTER TABLE reading_sessions ADD COLUMN current_stage_id TEXT DEFAULT "quick_scan"')
 
     conn.commit()
     conn.close()
@@ -80,10 +88,15 @@ def save_paper(paper_data):
     if isinstance(reading_plan, list):
         reading_plan = json.dumps(reading_plan)
 
+    # Convert content_analysis to JSON string if it's a dict
+    content_analysis = paper_data.get('content_analysis', {})
+    if isinstance(content_analysis, dict):
+        content_analysis = json.dumps(content_analysis)
+
     cursor.execute('''
         INSERT OR REPLACE INTO papers
-        (id, title, file_path, gemini_file_name, language, summary, reading_plan, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (id, title, file_path, gemini_file_name, language, summary, reading_plan, content_analysis, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         paper_data['id'],
         paper_data['title'],
@@ -92,6 +105,7 @@ def save_paper(paper_data):
         paper_data['language'],
         paper_data['summary'],
         reading_plan,
+        content_analysis,
         datetime.now().isoformat()
     ))
 
@@ -104,7 +118,7 @@ def get_all_papers():
     cursor = conn.cursor()
 
     cursor.execute('''
-        SELECT id, title, file_path, gemini_file_name, language, summary, reading_plan, created_at
+        SELECT id, title, file_path, gemini_file_name, language, summary, reading_plan, content_analysis, created_at
         FROM papers
         ORDER BY created_at DESC
     ''')
@@ -117,6 +131,12 @@ def get_all_papers():
                 reading_plan = json.loads(row[6])
             except (json.JSONDecodeError, TypeError):
                 reading_plan = []
+        content_analysis = {}
+        if row[7]:
+            try:
+                content_analysis = json.loads(row[7])
+            except (json.JSONDecodeError, TypeError):
+                content_analysis = {}
         papers.append({
             'id': row[0],
             'title': row[1],
@@ -125,7 +145,8 @@ def get_all_papers():
             'language': row[4],
             'summary': row[5],
             'reading_plan': reading_plan,
-            'timestamp': row[7]
+            'content_analysis': content_analysis,
+            'timestamp': row[8]
         })
 
     conn.close()
@@ -137,7 +158,7 @@ def get_paper_by_id(paper_id):
     cursor = conn.cursor()
 
     cursor.execute('''
-        SELECT id, title, file_path, gemini_file_name, language, summary, reading_plan, created_at
+        SELECT id, title, file_path, gemini_file_name, language, summary, reading_plan, content_analysis, created_at
         FROM papers
         WHERE id = ?
     ''', (paper_id,))
@@ -152,6 +173,12 @@ def get_paper_by_id(paper_id):
                 reading_plan = json.loads(row[6])
             except (json.JSONDecodeError, TypeError):
                 reading_plan = []
+        content_analysis = {}
+        if row[7]:
+            try:
+                content_analysis = json.loads(row[7])
+            except (json.JSONDecodeError, TypeError):
+                content_analysis = {}
         return {
             'id': row[0],
             'title': row[1],
@@ -160,7 +187,8 @@ def get_paper_by_id(paper_id):
             'language': row[4],
             'summary': row[5],
             'reading_plan': reading_plan,
-            'timestamp': row[7]
+            'content_analysis': content_analysis,
+            'timestamp': row[8]
         }
     return None
 

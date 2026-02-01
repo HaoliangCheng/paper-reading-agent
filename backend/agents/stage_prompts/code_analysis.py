@@ -1,6 +1,6 @@
-"""Step 6: Code Analysis - Understanding implementation details."""
+"""Code Analysis Stage - Understanding implementation details."""
 
-STEP_6_PROMPT = """## Step 6: Code Analysis (Optional - if code exists)
+CODE_ANALYSIS_PROMPT = """## Code Analysis (Optional - if code exists)
 
 ### Goal
 Help the user understand the practical implementation. Bridge the gap between paper and code.

@@ -1,6 +1,6 @@
-"""Step 2: Context Building - Understanding why the paper exists."""
+"""Context Building Stage - Understanding why the paper exists."""
 
-STEP_2_PROMPT = """## Step 2: Context Building
+CONTEXT_BUILDING_PROMPT = """## Context Building
 
 ### Goal
 Contextualize the paper. Help the user understand WHY this paper exists and what problem it addresses.
@@ -18,17 +18,15 @@ Explain in this order:
 4. **Impact**: What are the claimed benefits or contributions?
 
 ### What NOT to Do
-- Do NOT repeat information from Step 1
+- Do NOT repeat information from the Quick Scan
 - Do NOT dive into technical methodology yet
 - Keep the solution explanation at a high level
 
-### Tool Usage
-- Use `extract_images` to show figures that illustrate:
-  - The problem being solved
-  - Comparison with prior work
-  - High-level results or impact
-- Use `display_images` to show the figures you extracted.
-- Use `explain_images` to explain the figures you extracted.
+### Image Handling
+- Use `extract_images` for figures illustrating: the problem, comparisons with prior work, high-level results
+- Use `display_images` for already-extracted figures
+- **ALWAYS display images inline with your explanation** - when you mention a figure, show it immediately and explain it together
+- Never list figures separately from their explanations
 
 ### Ending
 After explaining the context, ask the user if they have any questions about current content and what do you plan to explain next, check if they want to move on to the next topic or they have interest in other topics.

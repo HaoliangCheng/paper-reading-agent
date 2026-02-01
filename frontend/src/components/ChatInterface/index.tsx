@@ -68,21 +68,31 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </S.ThemeToggleButton>
       </S.ChatHeader>
 
-      {selectedPaper?.reading_plan && selectedPaper.reading_plan.length > 0 && (
+      {/* Reading Plan hidden temporarily */}
+      {/* {selectedPaper?.reading_plan && selectedPaper.reading_plan.length > 0 && (
         <S.ReadingPlanSection>
           <S.PlanHeader onClick={() => setShowPlan(!showPlan)}>
             <S.PlanToggleIcon $isOpen={showPlan}>▶</S.PlanToggleIcon>
-            Reading Plan ({selectedPaper.reading_plan.length} steps)
+            Reading Plan ({selectedPaper.reading_plan.length} stages)
           </S.PlanHeader>
           {showPlan && (
             <S.PlanList>
-              {selectedPaper.reading_plan.map((item) => (
-                <S.PlanItem key={item.step}>
-                  <S.StepNumber>{item.step}</S.StepNumber>
+              {selectedPaper.reading_plan.map((item, index) => (
+                <S.PlanItem key={item.id || item.step || index}>
+                  <S.StepNumber>{item.step || index + 1}</S.StepNumber>
                   <S.StepContent>
-                    <S.StepTitle>{item.title}</S.StepTitle>
+                    <S.StepTitle>
+                      {item.title}
+                    </S.StepTitle>
                     <S.StepDesc>{item.description}</S.StepDesc>
-                    {item.key_topics && item.key_topics.length > 0 && (
+                    {item.sections && item.sections.length > 0 && (
+                      <S.StepTopics>
+                        {item.sections.map((section, idx) => (
+                          <S.TopicTag key={idx} style={{ backgroundColor: 'var(--primary-light, #e3f2fd)' }}>{section}</S.TopicTag>
+                        ))}
+                      </S.StepTopics>
+                    )}
+                    {item.key_topics && item.key_topics.length > 0 && !item.sections && (
                       <S.StepTopics>
                         {item.key_topics.map((topic, idx) => (
                           <S.TopicTag key={idx}>{topic}</S.TopicTag>
@@ -95,7 +105,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             </S.PlanList>
           )}
         </S.ReadingPlanSection>
-      )}
+      )} */}
 
       <S.MessagesArea ref={messagesContainerRef}>
         {messages.map((message, index) => (

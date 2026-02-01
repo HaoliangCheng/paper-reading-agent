@@ -55,54 +55,6 @@ reading_sessions = {}
 init_database()
 
 
-def _parse_step1_response(response_text: str, fallback_title: str) -> tuple:
-    """
-    Parse Step 1 response to extract title, summary, and reading_plan.
-    Step 1 should return JSON with 'title', 'summary', and 'reading_plan' fields.
-
-    Args:
-        response_text: Raw response from Step 1
-        fallback_title: Fallback title (usually filename) if parsing fails
-
-    Returns:
-        Tuple of (title, summary, reading_plan)
-    """
-    try:
-        # Try to extract JSON from response
-        text = response_text.strip()
-        text = re.sub(r'^```json\s*', '', text)
-        text = re.sub(r'\s*```$', '', text)
-
-        # Try to find JSON object in the text (more permissive regex for nested objects)
-        # Look for the outermost JSON object
-        brace_count = 0
-        start_idx = -1
-        end_idx = -1
-        for i, char in enumerate(text):
-            if char == '{':
-                if brace_count == 0:
-                    start_idx = i
-                brace_count += 1
-            elif char == '}':
-                brace_count -= 1
-                if brace_count == 0 and start_idx != -1:
-                    end_idx = i + 1
-                    break
-
-        if start_idx != -1 and end_idx != -1:
-            text = text[start_idx:end_idx]
-
-        data = json.loads(text)
-        title = data.get('title', '').strip() or fallback_title
-        summary = data.get('summary', response_text).strip()
-        reading_plan = data.get('reading_plan', [])
-
-        return title, summary, reading_plan
-
-    except (json.JSONDecodeError, AttributeError) as e:
-        logger.warning(f"Could not parse Step 1 JSON: {e}")
-        # Return the whole response as summary and use fallback title
-        return fallback_title, response_text, []
 
 
 @app.route('/api/analyze', methods=['POST'])
@@ -173,16 +125,17 @@ def analyze_paper():
                     add_key_point_callback=add_user_key_point
                 )
 
-                step1_summary = ""
-                extracted_images = []
-                
                 for update in agent.start_session_stream():
                     if isinstance(update, dict) and 'response' in update:
-                        step1_content = update['response']
-                        extracted_images = agent.get_extracted_images()
+                        # New format: parallel Quick Scan returns title, reading_plan, content_analysis directly
+                        summary = update['response']
+                        paper_title = update.get('title', '').strip() or original_filename
+                        reading_plan = update.get('reading_plan', [])
+                        content_analysis = update.get('content_analysis', {})
+                        extracted_images = update.get('extracted_images', [])
 
-                        # Parse title, summary, and reading_plan
-                        paper_title, step1_summary, reading_plan = _parse_step1_response(step1_content, original_filename)
+                        # Set reading plan on the agent for dynamic stage handling
+                        agent.set_reading_plan(reading_plan)
 
                         # Store session
                         reading_sessions[paper_id] = {
@@ -201,22 +154,24 @@ def analyze_paper():
                             'file_path': file_path,
                             'gemini_file_name': gemini_file.name,
                             'language': language,
-                            'summary': step1_summary,
-                            'reading_plan': reading_plan
+                            'summary': summary,
+                            'reading_plan': reading_plan,
+                            'content_analysis': content_analysis
                         }
                         save_paper(paper_data)
                         save_message({
                             'id': f"ai-{paper_id}-initial",
                             'paper_id': paper_id,
-                            'text': step1_summary,
+                            'text': summary,
                             'is_user': False
                         })
 
                         yield f"data: {json.dumps({
                             'id': paper_id,
                             'title': paper_title,
-                            'response': step1_summary,
+                            'response': summary,
                             'reading_plan': reading_plan,
+                            'content_analysis': content_analysis,
                             'extracted_images': extracted_images
                         })}\n\n"
                     else:

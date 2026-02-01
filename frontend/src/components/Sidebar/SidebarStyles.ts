@@ -21,9 +21,9 @@ export const SidebarContainer = styled.div<{ isCollapsed: boolean }>`
 `;
 
 export const SidebarHeader = styled.div<{ isCollapsed: boolean }>`
-  height: ${props => props.isCollapsed ? '112px' : '80px'};
-  padding: ${props => props.isCollapsed ? '16px 12px' : '0 20px'};
-  border-bottom: 1px solid ${props => props.theme.colors.borderColor};
+  height: ${props => props.isCollapsed ? '112px' : '60px'};
+  padding: ${props => props.isCollapsed ? '16px 12px' : '0 16px'};
+  border-bottom: none;
   display: flex;
   justify-content: ${props => props.isCollapsed ? 'center' : 'space-between'};
   align-items: center;
@@ -32,7 +32,7 @@ export const SidebarHeader = styled.div<{ isCollapsed: boolean }>`
 
   h2 {
     display: ${props => props.isCollapsed ? 'none' : 'block'};
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 700;
     color: ${props => props.theme.colors.textPrimary};
     letter-spacing: -0.025em;
@@ -59,13 +59,13 @@ export const HeaderButtons = styled.div<{ isCollapsed: boolean }>`
 `;
 
 export const AddButton = styled.button<{ isCollapsed: boolean }>`
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: ${props => props.theme.borderRadius.md};
   background-color: ${props => props.theme.colors.primary};
   color: white;
   border: none;
-  font-size: 20px;
+  font-size: 18px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -80,13 +80,13 @@ export const AddButton = styled.button<{ isCollapsed: boolean }>`
 `;
 
 export const ProfileButton = styled.button<{ isCollapsed: boolean }>`
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: ${props => props.theme.borderRadius.md};
   background-color: ${props => props.theme.colors.bgHover};
   color: ${props => props.theme.colors.textSecondary};
   border: 1px solid ${props => props.theme.colors.borderColor};
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -101,8 +101,8 @@ export const ProfileButton = styled.button<{ isCollapsed: boolean }>`
   }
 
   svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 `;
 
@@ -137,8 +137,8 @@ export const HistorySection = styled.div`
   min-height: 0;
 
   h3 {
-    padding: 16px 20px 8px;
-    font-size: 0.75rem;
+    padding: 12px 16px 6px;
+    font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -146,7 +146,7 @@ export const HistorySection = styled.div`
     white-space: nowrap;
     
     @media (max-width: ${props => props.theme.breakpoints.mobile}) {
-      padding: 12px 20px 4px;
+      padding: 10px 16px 4px;
     }
   }
 `;
@@ -174,8 +174,8 @@ export const PaperList = styled.div`
 `;
 
 export const PaperItem = styled.div<{ isSelected: boolean; isCollapsed: boolean }>`
-  padding: ${props => props.isCollapsed ? '12px 0' : '12px'};
-  margin-bottom: 8px;
+  padding: ${props => props.isCollapsed ? '8px 0' : '8px 10px'};
+  margin-bottom: 6px;
   border-radius: ${props => props.theme.borderRadius.lg};
   cursor: pointer;
   transition: all 0.2s;
@@ -207,15 +207,15 @@ export const PaperContent = styled.div<{ isCollapsed: boolean }>`
 
 export const PaperTitle = styled.div`
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: ${props => props.theme.colors.textPrimary};
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  line-height: 1.4;
+  line-height: 1.3;
   word-wrap: break-word;
   overflow-wrap: break-word;
 `;

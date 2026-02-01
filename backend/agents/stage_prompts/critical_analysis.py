@@ -1,6 +1,6 @@
-"""Step 4: Critical Analysis - Evaluating relevance and impact."""
+"""Critical Analysis Stage - Evaluating relevance and impact."""
 
-STEP_4_PROMPT = """## Step 4: Critical Analysis
+CRITICAL_ANALYSIS_PROMPT = """## Critical Analysis
 
 ### Goal
 Re-read the paper with a critical eye. Help the user understand the paper's current relevance and impact.

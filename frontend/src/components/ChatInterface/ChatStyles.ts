@@ -8,16 +8,16 @@ export const ChatContainer = styled.div`
 `;
 
 export const ChatHeader = styled.div`
-  height: 80px;
+  height: 60px;
   padding: 0 16px;
-  border-bottom: 1px solid ${props => props.theme.colors.borderColor};
+  border-bottom: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: ${props => props.theme.colors.bgSecondary};
 
   h2 {
-    font-size: 1.125rem;
+    font-size: 1rem;
     font-weight: 700;
     color: ${props => props.theme.colors.textPrimary};
     margin: 0;
@@ -29,12 +29,12 @@ export const ChatHeader = styled.div`
 `;
 
 export const ThemeToggleButton = styled.button`
-  width: 40px;
-  height: 40px;
-  border-radius: ${props => props.theme.borderRadius.lg};
+  width: 32px;
+  height: 32px;
+  border-radius: ${props => props.theme.borderRadius.md};
   background-color: ${props => props.theme.colors.bgHover};
   border: 1px solid ${props => props.theme.colors.borderColor};
-  font-size: 20px;
+  font-size: 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -63,7 +63,7 @@ export const MessageInputArea = styled.div`
   display: flex;
   padding: 16px;
   gap: 12px;
-  border-top: 1px solid ${props => props.theme.colors.borderColor};
+  border-top: none;
   background-color: ${props => props.theme.colors.bgSecondary};
 `;
 
@@ -134,7 +134,11 @@ export const ReadingPlanSection = styled.div`
   margin: 0;
   padding: 12px 16px;
   background-color: ${props => props.theme.colors.bgSecondary};
-  border-bottom: 1px solid ${props => props.theme.colors.borderColor};
+  border-bottom: none;
+  max-height: 40vh;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
 `;
 
 export const PlanHeader = styled.button`
@@ -174,6 +178,9 @@ export const PlanList = styled.div`
   gap: 8px;
   margin-top: 12px;
   padding: 0 4px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 `;
 
 export const PlanItem = styled.div`
