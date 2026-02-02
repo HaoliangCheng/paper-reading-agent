@@ -13,10 +13,12 @@ def create_execute_step_tool() -> types.FunctionDeclaration:
 Modes:
 1. **Q&A Mode** (mode="qa"): User asks a question, stay in current stage
    - Use when: "What is X?", "Can you explain?", "Tell me more about..."
+   - previous_stage and next_stage should be the SAME
    - After this, answer the user's question (don't regenerate stage content)
 
 2. **Transition Mode** (mode="transition"): User wants to move to a different stage
    - Use when: "no questions", "next", "continue", "I understand", "show me the math"
+   - previous_stage = current stage, next_stage = new stage to transition to
    - After this, generate the FULL content for the new stage
 
 Available Stages (use the reading_plan in context for this paper's specific stages):
@@ -30,9 +32,13 @@ Available Stages (use the reading_plan in context for this paper's specific stag
         parameters={
             "type": "object",
             "properties": {
-                "stage_id": {
+                "previous_stage": {
                     "type": "string",
-                    "description": "The stage ID (e.g., 'quick_scan', 'methodology', 'section_deep_dive')"
+                    "description": "The current stage before this action (e.g., 'quick_scan', 'methodology')"
+                },
+                "next_stage": {
+                    "type": "string",
+                    "description": "The stage after this action. Same as previous_stage for Q&A mode, or the new stage for transition mode"
                 },
                 "mode": {
                     "type": "string",
@@ -48,7 +54,7 @@ Available Stages (use the reading_plan in context for this paper's specific stag
                     "description": "For section_deep_dive: the name of the section to explore"
                 }
             },
-            "required": ["stage_id", "mode", "reason"]
+            "required": ["previous_stage", "next_stage", "mode", "reason"]
         }
     )
 

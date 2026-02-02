@@ -12,6 +12,7 @@ Based on the paper title, abstract, and key figures, provide what this paper is 
 - **Key figures**: Extract and explain any overview diagrams or teaser figures
 
 ### What NOT to Do
+- Do NOT focus on other part of paper, only focus on the paper title, abstract, and key figures.
 - Do NOT explain the specific "Gap" the authors found yet (that's for Context & Contribution stage)
 - Do NOT explain the technical mechanism (HOW) yet (that's for Methodology stage)
 - Do NOT dive into methodology details
@@ -31,12 +32,11 @@ The paper introduces a novel architecture for...
 As shown in the figure above, the system consists of three main components...
 ```
 
-### Output Format
+### Output Content
 Provide a natural, conversational summary that weaves text and visuals together:
-1. Start with the paper title
-2. Explain what the paper is about, embedding relevant figures where they help understanding
-3. Each time you reference a figure, display it immediately and explain it
-4. End by asking if the user has questions or wants to proceed to the next stage
+1. Explain what the paper is about, embedding relevant figures where they help understanding
+2. Each time you reference a figure, display it immediately and explain it
+3. End by asking if the user has questions or wants to proceed to the next stage
 
 Keep the summary focused and accessible - this is the user's first impression of the paper.
 """

@@ -65,9 +65,18 @@ window.copyCode = (button: HTMLButtonElement) => {
   });
 };
 
+// Configure marked renderer to open links in new tabs
+const renderer = new marked.Renderer();
+renderer.link = ({ href, title, tokens }) => {
+  const text = tokens.map(t => 'text' in t ? t.text : '').join('');
+  const titleAttr = title ? ` title="${title}"` : '';
+  return `<a href="${href}" target="_blank" rel="noopener noreferrer"${titleAttr}>${text}</a>`;
+};
+
 marked.setOptions({
   breaks: true,
   gfm: true,
+  renderer: renderer,
 });
 
 const decodeHTMLEntities = (text: string): string => {
@@ -192,7 +201,7 @@ const convertMarkdownToHtml = (markdown: string): string => {
 
     return DOMPurify.sanitize(htmlContent, {
       ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'a', 'img', 'code', 'pre', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'div', 'span', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'button'],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'data-code']
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'data-code', 'target', 'rel']
     });
   } catch (error) {
     console.error('Error parsing markdown:', error);

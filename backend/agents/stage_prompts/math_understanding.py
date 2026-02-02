@@ -21,6 +21,7 @@ For each key equation:
    - Highlight key transformations
 
 3. **Variable Breakdown**
+   - For each new formula, break down the variables and explain what they represent.
    - What each symbol represents
    - Dimensions/shapes of tensors
    - Typical value ranges

@@ -435,9 +435,9 @@ class ConversationalPaperAgent:
                 elif fc.name == "update_user_profile":
                     status_msg = "Executing: Updating user profile"
                 elif fc.name == "execute_step":
-                    stage_id = fc.args.get('stage_id') if fc.args else None
-                    if stage_id:
-                        stage_name = get_stage_name(stage_id)
+                    next_stage = fc.args.get('next_stage') if fc.args else None
+                    if next_stage:
+                        stage_name = get_stage_name(next_stage)
                         status_msg = f"Transitioning to: {stage_name}"
                 yield status_msg
 
@@ -644,9 +644,9 @@ class ConversationalPaperAgent:
                     elif fc.name == "update_user_profile":
                         status_msg = "Executing: Updating user profile"
                     elif fc.name == "execute_step":
-                        stage_id = fc.args.get('stage_id') if fc.args else None
-                        if stage_id:
-                            stage_name = get_stage_name(stage_id)
+                        next_stage = fc.args.get('next_stage') if fc.args else None
+                        if next_stage:
+                            stage_name = get_stage_name(next_stage)
                             status_msg = f"Transitioning to: {stage_name}"
                     self.status_callback(status_msg)
 
@@ -843,42 +843,43 @@ class ConversationalPaperAgent:
                     return {"success": False, "error": str(e)}
 
             elif function_call.name == "execute_step":
-                stage_id = args.get("stage_id", 'quick_scan')
+                previous_stage = args.get("previous_stage", self.current_stage_id or 'quick_scan')
+                next_stage = args.get("next_stage", 'quick_scan')
                 mode = args.get("mode", "transition")
                 reason = args.get("reason", "")
                 section_name = args.get("section_name", None)
 
-                logger.info(f"📖 Execute stage '{stage_id}' (mode={mode}): {reason}")
+                logger.info(f"📖 Execute step: '{previous_stage}' -> '{next_stage}' (mode={mode}): {reason}")
 
-                stage_name = get_stage_name(stage_id)
-                stage_prompt = get_stage_prompt(stage_id)
+                stage_name = get_stage_name(next_stage)
+                stage_prompt = get_stage_prompt(next_stage)
 
-                previous_stage = self.current_stage_id
-                self.current_stage_id = stage_id
+                self.current_stage_id = next_stage
 
-                if stage_id == 'section_deep_dive' and section_name:
+                if next_stage == 'section_deep_dive' and section_name:
                     self.current_section = section_name
                     logger.info(f"📖 Exploring section: {section_name}")
 
                 if mode == "qa":
-                    logger.info(f"✓ Q&A mode in stage '{stage_id}' ({stage_name})")
+                    logger.info(f"✓ Q&A mode in stage '{next_stage}' ({stage_name})")
                     return {
                         "success": True,
                         "mode": "qa",
-                        "stage_id": stage_id,
+                        "previous_stage": previous_stage,
+                        "next_stage": next_stage,
                         "stage_name": stage_name,
                         "reason": reason,
                         "action_required": "Answer the user's question directly. Use the current stage context but do NOT regenerate the full stage content.",
                         "stage_context": stage_prompt
                     }
                 else:
-                    logger.info(f"✓ Transitioned from '{previous_stage}' to '{stage_id}' ({stage_name})")
+                    logger.info(f"✓ Transitioned from '{previous_stage}' to '{next_stage}' ({stage_name})")
                     result = {
                         "success": True,
                         "mode": "transition",
-                        "stage_id": stage_id,
-                        "stage_name": stage_name,
                         "previous_stage": previous_stage,
+                        "next_stage": next_stage,
+                        "stage_name": stage_name,
                         "reason": reason,
                         "action_required": f"IMPORTANT: You MUST now immediately generate the FULL {stage_name} content. Do NOT just acknowledge - perform the complete stage analysis now.",
                         "stage_instructions": stage_prompt
