@@ -1,0 +1,89 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+!backend/.env.example
+
+# API keys
+*.key
+*_key.txt
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backend specific
+backend/uploads/
+backend/agent_test/
+backend/venv/
+backend/venv_new/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/test/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+
+# Virtual environments
+venv/
+venv_new/
+ENV/
+env/
+.venv/
+
+# UV package manager
+.uv/
+backend/uv.lock
+
+# Claude Code
+.claude/
+claude.md
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend (React)
+frontend/node_modules/
+frontend/katex_example.html
+frontend/.pnp/
+frontend/.pnp.js
+frontend/coverage/
+frontend/build/
+
+# Documentation (exclude README.md)
+agent_design.md
+design_document.md
+claude.md
+*_design.md
+*_document.md
