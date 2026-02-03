@@ -14,13 +14,6 @@ This stage covers both the BEGINNING (Introduction) and END (Conclusion) of the 
 - Conclusion section: what they achieved, key results
 - Related Work section (skim): how this fits in the broader landscape
 
-### Key Narrative Structure
-Explain in this order:
-1. **Background**: What is the broader research area?
-2. **Gap/Problem**: What specific problem or limitation did the authors identify?
-3. **Their Solution** (high-level): How do they propose to address this gap?
-4. **What They Achieved**: Key results and contributions from the conclusion
-5. **Impact**: Why does this matter? What are the implications?
 
 ### What NOT to Do
 - Do NOT repeat the overview from Quick Scan

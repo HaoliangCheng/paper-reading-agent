@@ -19,6 +19,7 @@
   --code-border: #e2e8f0;
   --code-text: #1e293b;
   --shadow: rgba(0, 0, 0, 0.1);
+  --primary-light: #e0e7ff;
 }
 
 .dark-mode {
@@ -36,6 +37,7 @@
   --code-border: #334155;
   --code-text: #e2e8f0;
   --shadow: rgba(0, 0, 0, 0.3);
+  --primary-light: rgba(79, 70, 229, 0.2);
 }
 
 body {

@@ -59,17 +59,51 @@ Available Stages (use the reading_plan in context for this paper's specific stag
     )
 
 
+def create_generate_animation_tool() -> types.FunctionDeclaration:
+    """Create the generate_animation function declaration for visual explanations."""
+    return types.FunctionDeclaration(
+        name="generate_animation",
+        description="""Generate an interactive HTML/JavaScript animation to explain a complex concept.
+
+Use this tool when:
+- The concept involves processes, flows, or sequences that are hard to explain in text
+- Mathematical concepts that benefit from visual demonstration (e.g., gradient descent, attention mechanism)
+- Architectures or data structures that need interactive visualization
+- The user explicitly asks for a visual explanation
+
+The animation should be self-contained HTML with inline CSS and JavaScript.
+Create educational animations that help illustrate the concept clearly.""",
+        parameters={
+            "type": "object",
+            "properties": {
+                "concept": {
+                    "type": "string",
+                    "description": "The concept to explain with animation"
+                },
+                "animation_html": {
+                    "type": "string",
+                    "description": "Complete HTML code with inline CSS and JavaScript. Must be a valid self-contained HTML document that can run in an iframe."
+                },
+                "explanation": {
+                    "type": "string",
+                    "description": "Brief text explanation to accompany the animation"
+                }
+            },
+            "required": ["concept", "animation_html", "explanation"]
+        }
+    )
+
+
 def create_update_user_profile_tool() -> types.FunctionDeclaration:
     """Create the update_user_profile function declaration."""
     return types.FunctionDeclaration(
         name="update_user_profile",
-        description="""Add a key insight about the user based on their questions.
+        description="""Add a key insight about the user background and level of expertise.
 
 Call this when you learn something significant about the user's:
 - Research interests or focus areas
 - Technical expertise level
 - Background knowledge
-- Current projects or goals
 
 Only add truly relevant insights that would help personalize future explanations.""",
         parameters={
@@ -240,6 +274,7 @@ This tool uses Google Search grounding to find relevant web sources.""",
         explain_images_declaration,
         web_search_declaration,
         create_execute_step_tool(),
+        create_generate_animation_tool(),
     ]
 
     if include_profile_tool:

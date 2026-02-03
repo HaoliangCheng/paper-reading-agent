@@ -434,6 +434,9 @@ class ConversationalPaperAgent:
                     status_msg = "Executing: Analyzing figure details"
                 elif fc.name == "update_user_profile":
                     status_msg = "Executing: Updating user profile"
+                elif fc.name == "generate_animation":
+                    concept = fc.args.get('concept', '') if fc.args else ''
+                    status_msg = f"Generating animation: {concept[:50]}..." if len(concept) > 50 else f"Generating animation: {concept}"
                 elif fc.name == "execute_step":
                     next_stage = fc.args.get('next_stage') if fc.args else None
                     if next_stage:
@@ -643,6 +646,9 @@ class ConversationalPaperAgent:
                         status_msg = "Executing: Analyzing figure details"
                     elif fc.name == "update_user_profile":
                         status_msg = "Executing: Updating user profile"
+                    elif fc.name == "generate_animation":
+                        concept = fc.args.get('concept', '') if fc.args else ''
+                        status_msg = f"Generating animation: {concept[:50]}..." if len(concept) > 50 else f"Generating animation: {concept}"
                     elif fc.name == "execute_step":
                         next_stage = fc.args.get('next_stage') if fc.args else None
                         if next_stage:
@@ -841,6 +847,31 @@ class ConversationalPaperAgent:
                 except Exception as e:
                     logger.error(f"✗ Failed to update profile: {e}", exc_info=True)
                     return {"success": False, "error": str(e)}
+
+            elif function_call.name == "generate_animation":
+                concept = args.get("concept", "")
+                animation_html = args.get("animation_html", "")
+                explanation = args.get("explanation", "")
+                logger.info(f"🎬 Generating animation for concept: {concept}")
+
+                if not animation_html:
+                    return {"success": False, "error": "No animation HTML provided"}
+
+                # Wrap HTML in special markers for frontend detection
+                # Using unique markers that won't be affected by markdown/HTML processing
+                wrapped_content = f"""{explanation}
+
+<<<ANIMATION_START>>>
+{animation_html}
+<<<ANIMATION_END>>>"""
+
+                logger.info(f"✓ Animation generated for '{concept}' ({len(animation_html)} chars)")
+                return {
+                    "success": True,
+                    "concept": concept,
+                    "content": wrapped_content,
+                    "instruction": "Include the content above in your response exactly as provided, preserving all markers and HTML code. The animation will be rendered in an interactive iframe."
+                }
 
             elif function_call.name == "execute_step":
                 previous_stage = args.get("previous_stage", self.current_stage_id or 'quick_scan')

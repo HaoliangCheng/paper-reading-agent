@@ -23,6 +23,7 @@ backend/venv_new/
 backend/__pycache__/
 backend/**/__pycache__/
 backend/*.pyc
+backend/test/
 
 # Python
 __pycache__/

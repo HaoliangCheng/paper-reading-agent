@@ -6,6 +6,7 @@ import time
 import json
 import re
 import logging
+import concurrent.futures
 from typing import List, Dict, Any, Optional, Tuple
 from PIL import Image as PILImage
 from google import genai
@@ -35,18 +36,35 @@ class GeminiProvider(BaseLLMProvider):
         """Create a new chat session for multi-turn conversation"""
         return self.client.chats.create(model=self.model_id)
 
-    def upload_file(self, file_path: str) -> Any:
-        """Upload PDF to Gemini File API and wait for processing"""
-        file = self.client.files.upload(file=file_path)
+    def upload_file(self, file_path: str, timeout_seconds: int = 120) -> Any:
+        """
+        Upload PDF to Gemini File API and wait for processing.
 
-        while file.state.name == "PROCESSING":
-            time.sleep(2)
-            file = self.client.files.get(name=file.name)
+        Args:
+            file_path: Path to the file to upload
+            timeout_seconds: Maximum time to wait for upload and processing (default: 120 seconds / 2 minutes)
 
-        if file.state.name == "FAILED":
-            logger.error("Gemini file processing failed")
-            raise Exception("Gemini file processing failed")
+        Returns:
+            Gemini file object
 
+        Raises:
+            TimeoutError: If upload or processing takes longer than timeout_seconds
+            Exception: If Gemini file processing fails
+        """
+        logger.info(f"Uploading file to Gemini: {file_path}")
+        start_time = time.time()
+
+        # Wrap the upload call with a timeout using ThreadPoolExecutor
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(self.client.files.upload, file=file_path)
+            try:
+                file = future.result(timeout=timeout_seconds)
+            except concurrent.futures.TimeoutError:
+                logger.error(f"File upload timed out after {timeout_seconds} seconds")
+                raise TimeoutError(f"File upload timed out after {timeout_seconds} seconds. Please try again with a smaller file or check your network connection.")
+
+        elapsed_time = time.time() - start_time
+        logger.info(f"File upload and processing completed in {elapsed_time:.1f}s")
         return file
 
     def get_file(self, file_name: str) -> Any:
