@@ -60,11 +60,13 @@ The agent uses a **conversational design** with on-demand figure extraction:
 
    **Mac/Linux:**
    ```bash
+   cd ../
    ./start.sh
    ```
 
    **Windows:**
    ```bash
+   cd ../
    start.bat
    ```
 
