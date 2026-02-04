@@ -563,7 +563,7 @@ class ConversationalPaperAgent:
             content = msg["content"]
 
             if len(content) > 2000:
-                content = content[:2000] + "... [truncated]"
+                content = content[:1000] + "... [truncated]" + content[-1000:]
 
             contents.append(types.Content(
                 role=role if role == "user" else "model",
