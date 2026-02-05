@@ -242,7 +242,7 @@ export const ViewPdfButton = styled.button`
   gap: 4px;
   padding: 4px 6px;
   background-color: transparent;
-  color: #6366f1;
+  color: #34d399;
   border: 1px solid transparent;
   border-radius: 6px;
   font-size: 10px;
@@ -255,9 +255,9 @@ export const ViewPdfButton = styled.button`
 
   &:hover {
     opacity: 1;
-    color: #4f46e5;
-    background-color: #f5f3ff;
-    border-color: #ddd6fe;
+    color: #10b981;
+    background-color: #ecfdf5;
+    border-color: #a7f3d0;
   }
 
   svg {
@@ -267,11 +267,11 @@ export const ViewPdfButton = styled.button`
   }
 
   .dark-mode & {
-    color: #818cf8;
+    color: #6ee7b7;
     &:hover {
-      color: #a5b4fc;
-      background-color: rgba(99, 102, 241, 0.1);
-      border-color: rgba(99, 102, 241, 0.2);
+      color: #a7f3d0;
+      background-color: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.2);
     }
   }
 `;

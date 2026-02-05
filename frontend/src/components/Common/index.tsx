@@ -110,7 +110,7 @@ export const Input = styled.input`
   &:focus {
     outline: none;
     border-color: ${props => props.theme.colors.primary};
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
   }
 
   &:disabled {

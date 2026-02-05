@@ -19,7 +19,7 @@
   --code-border: #e2e8f0;
   --code-text: #1e293b;
   --shadow: rgba(0, 0, 0, 0.1);
-  --primary-light: #e0e7ff;
+  --primary-light: #d1fae5;
 }
 
 .dark-mode {
@@ -37,7 +37,7 @@
   --code-border: #334155;
   --code-text: #e2e8f0;
   --shadow: rgba(0, 0, 0, 0.3);
-  --primary-light: rgba(79, 70, 229, 0.2);
+  --primary-light: rgba(16, 185, 129, 0.2);
 }
 
 body {
@@ -89,7 +89,7 @@ body {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background-color: #4f46e5;
+  background-color: #10b981;
   color: white;
   border: none;
   font-size: 20px;
@@ -101,7 +101,7 @@ body {
 }
 
 .add-button:hover {
-  background-color: #4338ca;
+  background-color: #059669;
   transform: translateY(-1px);
 }
 
@@ -167,7 +167,7 @@ body {
 
 .paper-item.selected {
   background-color: var(--bg-hover);
-  border-color: #4f46e5;
+  border-color: #10b981;
 }
 
 .paper-content {
@@ -212,7 +212,7 @@ body {
   gap: 4px;
   padding: 4px 6px;
   background-color: transparent;
-  color: #6366f1;
+  color: #34d399;
   border: 1px solid transparent;
   border-radius: 6px;
   font-size: 10px;
@@ -226,9 +226,9 @@ body {
 
 .view-pdf-button:hover {
   opacity: 1;
-  color: #4f46e5;
-  background-color: #f5f3ff;
-  border-color: #ddd6fe;
+  color: #10b981;
+  background-color: #ecfdf5;
+  border-color: #a7f3d0;
 }
 
 .view-pdf-button svg {
@@ -239,13 +239,13 @@ body {
 
 /* Dark mode support */
 .dark-mode .view-pdf-button {
-  color: #818cf8;
+  color: #6ee7b7;
 }
 
 .dark-mode .view-pdf-button:hover {
-  color: #a5b4fc;
-  background-color: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.2);
+  color: #a7f3d0;
+  background-color: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
 }
 
 .delete-button {
@@ -337,7 +337,7 @@ body {
 
 .start-button {
   padding: 12px 24px;
-  background-color: #4f46e5;
+  background-color: #10b981;
   color: white;
   border: none;
   border-radius: 10px;
@@ -348,7 +348,7 @@ body {
 }
 
 .start-button:hover {
-  background-color: #4338ca;
+  background-color: #059669;
   transform: scale(1.02);
 }
 
@@ -443,7 +443,7 @@ body {
 }
 
 .user-message .message-content {
-  background-color: #4f46e5;
+  background-color: #10b981;
   color: white;
   border-bottom-right-radius: 4px;
   padding: 6px 12px;
@@ -503,17 +503,17 @@ body {
 }
 
 .message-content a {
-  color: #4f46e5;
+  color: #10b981;
   text-decoration: underline;
   transition: color 0.2s;
 }
 
 .message-content a:hover {
-  color: #4338ca;
+  color: #059669;
 }
 
 .user-message .message-content a {
-  color: #e0e7ff;
+  color: #d1fae5;
 }
 
 .user-message .message-content a:hover {
@@ -554,7 +554,7 @@ body {
 }
 
 .message-content blockquote {
-  border-left: 4px solid #4f46e5;
+  border-left: 4px solid #10b981;
   padding-left: 16px;
   margin: 12px 0;
   color: #64748b;
@@ -667,13 +667,13 @@ body {
 
 .chat-input:focus {
   outline: none;
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
 .send-button {
   padding: 0 20px;
-  background-color: #4f46e5;
+  background-color: #10b981;
   color: white;
   border: none;
   border-radius: 10px;
@@ -684,7 +684,7 @@ body {
 }
 
 .send-button:hover:not(:disabled) {
-  background-color: #4338ca;
+  background-color: #059669;
 }
 
 .send-button:disabled {
@@ -775,7 +775,7 @@ body {
 
 .tab-btn.active {
   background-color: var(--bg-secondary);
-  color: #4f46e5;
+  color: #10b981;
   box-shadow: 0 1px 3px var(--shadow);
 }
 
@@ -818,7 +818,7 @@ body {
 }
 
 .file-drop-zone:hover:not(.disabled) {
-  border-color: #4f46e5;
+  border-color: #10b981;
   background-color: var(--bg-hover);
 }
 
@@ -885,7 +885,7 @@ body {
   width: 100%;
   margin-top: 24px;
   padding: 14px;
-  background-color: #4f46e5;
+  background-color: #10b981;
   color: white;
   border: none;
   border-radius: 12px;
@@ -896,7 +896,7 @@ body {
 }
 
 .modal-analyze-button:hover:not(:disabled) {
-  background-color: #4338ca;
+  background-color: #059669;
   transform: translateY(-1px);
 }
 
@@ -1086,7 +1086,7 @@ body {
 .typing-dots span {
   width: 4px;
   height: 4px;
-  background-color: #4f46e5;
+  background-color: #10b981;
   border-radius: 50%;
   opacity: 0.4;
   animation: typing-fade 1.4s infinite;
@@ -1115,7 +1115,7 @@ body {
 
 /* Dark mode adjustments */
 .dark-mode .typing-dots span {
-  background-color: #818cf8;
+  background-color: #6ee7b7;
 }
 
 /* Scrollbar styling */

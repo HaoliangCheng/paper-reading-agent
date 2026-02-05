@@ -48,7 +48,7 @@ export const MessageContent = styled.div<{ isUser: boolean }>`
   li { margin: 0.4em 0; }
 
   a {
-    color: ${props => props.isUser ? '#e0e7ff' : props.theme.colors.primary};
+    color: ${props => props.isUser ? '#d1fae5' : props.theme.colors.primary};
     text-decoration: underline;
     transition: color 0.2s;
     &:hover { color: ${props => props.isUser ? 'white' : props.theme.colors.primaryHover}; }
@@ -125,7 +125,7 @@ export const TextPart = styled.div<{ isUser?: boolean }>`
   li { margin: 0.4em 0; }
 
   a {
-    color: ${props => props.isUser ? '#e0e7ff' : props.theme.colors.primary};
+    color: ${props => props.isUser ? '#d1fae5' : props.theme.colors.primary};
     text-decoration: underline;
     transition: color 0.2s;
     &:hover { color: ${props => props.isUser ? 'white' : props.theme.colors.primaryHover}; }
