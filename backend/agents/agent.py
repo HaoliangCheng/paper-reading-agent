@@ -874,7 +874,7 @@ class ConversationalPaperAgent:
                 }
 
             elif function_call.name == "execute_step":
-                previous_stage = args.get("previous_stage", self.current_stage_id or 'quick_scan')
+                previous_stage = args.get("current_stage", self.current_stage_id or 'quick_scan')
                 next_stage = args.get("next_stage", 'quick_scan')
                 mode = args.get("mode", "transition")
                 reason = args.get("reason", "")
