@@ -25,6 +25,10 @@ backend/**/__pycache__/
 backend/*.pyc
 backend/test/
 
+# production files  
+backend_production/
+frontend_production/
+
 # Python
 __pycache__/
 *.py[cod]

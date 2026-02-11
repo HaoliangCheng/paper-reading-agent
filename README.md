@@ -1,219 +1,197 @@
 # Paper Reading Agent
 
-An intelligent open-source agent that helps you read, analyze, and interact with academic papers using AI.
+An AI-powered research paper reading assistant that helps you understand, analyze, and discuss academic papers.
 
 ## Features
 
-- **PDF Upload & Analysis**: Upload academic papers via file or arXiv URL
-- **Smart Summary**: Automatic paper summarization using Google Gemini 3.0 Flash
-- **Interactive Chat**: Ask questions and discuss paper content with AI
-- **On-Demand Figure Extraction**: Extracts figures/diagrams only when needed for efficient processing
-- **Session Persistence**: Maintains conversation history and extracted images across sessions
-- **Multilingual Support**: English, Chinese, Spanish, French, and more
-- **Beautiful UI**: Modern, responsive React frontend with LaTeX math rendering (KaTeX)
+- **Smart Summaries** - Get instant, intelligent summaries of research papers
+- **Interactive Q&A** - Ask questions about the paper and get detailed, context-aware answers
+- **Multi-Language Support** - Supports English and Chinese for summaries and discussions
+- **ArXiv Integration** - Paste any ArXiv link and we'll automatically fetch the PDF
+- **Figure Analysis** - AI extracts and explains figures, charts, and equations
+- **Reading History** - Keep track of all your papers and conversations
+
+## System Architecture
+
+![Pipeline Architecture](pipeline.png)
+
+The Paper Reading Agent follows a sophisticated 6-phase pipeline designed for deep comprehension and interactive analysis of academic papers:
+
+1.  **Phase 1: Upload** - PDFs or ArXiv URLs are uploaded and processed through the Gemini File API, allowing the model to handle long-context documents efficiently.
+2.  **Phase 2: Quick Scan** - Parallel execution of summary generation, figure extraction, and the creation of a structured **Reading Plan** (JSON).
+3.  **Phase 3: Stage Router** - Dynamically routes the conversation through specialized stages:
+    *   **Context & Contribution**: High-level motivation and results.
+    *   **Methodology**: Detailed technical approach.
+    *   **Section Explorer & Deep Dive**: Multi-section navigation.
+    *   **Math**: Formula and proof analysis.
+    *   **Code Analysis**: Implementation details.
+4.  **Phase 4: Build Context** - Aggregates the PDF content, conversation history, stage-specific prompts, user profiles, and extracted images to provide a rich context for the LLM.
+5.  **Phase 5: Agent Loop** - An iterative "Plan-Execute-Observe" loop where Gemini uses tools (extract, display, web_search, etc.) to refine its understanding. Supports up to 10 iterations.
+6.  **Phase 6: Streamed Response** - Delivers real-time answers to the user via Server-Sent Events (SSE).
 
 ## Tech Stack
 
-### Backend
-- **Framework**: Flask (Python 3.8+)
-- **AI Model**: Google Gemini 3.0 Flash (gemini-3-flash-preview)
-- **PDF Processing**: PyMuPDF (fitz), PyPDF2
-- **Database**: SQLite with conversation history
-- **Image Processing**: Pillow (PIL)
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18, TypeScript, styled-components |
+| Backend | Flask (Python) |
+| Database | SQLite |
+| AI | Google Gemini API |
 
-### Frontend
-- **Framework**: React 18 with TypeScript
-- **Styling**: CSS3 with modern animations
-- **Math Rendering**: KaTeX for LaTeX equations
-- **HTTP Client**: Native fetch API
+## Quick Start
 
-## Architecture
+### Prerequisites
 
-The agent uses a **conversational design** with on-demand figure extraction:
+- Python 3.12+
+- Node.js 18+
+- Google Gemini API key ([Get one here](https://aistudio.google.com/app/apikey))
 
-1. **Upload Phase**: PDF uploaded to Gemini File API
-2. **Initial Analysis**: Generates paper summary automatically
-3. **Chat Phase**: User asks questions, agent extracts figures only when needed
-4. **Function Calling**: LLM decides which figures to extract/display using built-in tools
+### Installation
 
-## Prerequisites
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd paper-reading-agent
+   ```
 
-- Python 3.12 or higher
-- Node.js 14 or higher
-- Google Gemini API Key ([Get one here](https://aistudio.google.com/app/apikey))
+2. **Backend Setup**
 
-## Installation & Setup
-
-### 🚀 Quick Start (One-Click Setup)
-
-**The easiest way to get started:**
-
-1. **Get your Gemini API key** from [Google AI Studio](https://aistudio.google.com/app/apikey)
-
-2. **Create `.env` file** in the `backend/` folder:
    ```bash
    cd backend
-   echo "GOOGLE_API_KEY=your_api_key_here" > .env
+
+   # Create virtual environment
+   python3 -m venv venv
+   source venv/bin/activate  # Windows: venv\Scripts\activate
+
+   # Install dependencies
+   pip install -r requirements.txt
+
+   # Create .env file
+   echo "GOOGLE_API_KEY=your-api-key-here" > .env
+
+   # Run the server
+   python app.py
    ```
 
-3. **Run the startup script:**
+   Backend runs at http://localhost:5000
 
-   **Mac/Linux:**
+3. **Frontend Setup**
+
    ```bash
-   cd ../
-   ./start.sh
+   cd frontend
+
+   # Install dependencies
+   npm install
+
+   # Run development server
+   npm start
    ```
 
-   **Windows:**
-   ```bash
-   cd ../
-   start.bat
-   ```
-
-That's it! The script will:
-- ✅ Check all prerequisites (Python, Node.js)
-- ✅ Install backend and frontend dependencies
-- ✅ Start both servers automatically
-- ✅ Open the application in your browser
-
----
-
-### 📋 Manual Setup (Alternative)
-
-If you prefer manual setup or the startup script doesn't work:
-
-#### 1. Clone the Repository
-
-```bash
-git clone https://github.com/HaoliangCheng/paper-reading-agent.git
-cd paper-reading-agent
-```
-
-#### 2. Backend Setup
-
-#### Option A: Using UV (Recommended - Faster)
-
-```bash
-cd backend
-
-# Install uv if you haven't already
-# macOS/Linux:
-curl -LsSf https://astral.sh/uv/install.sh | sh
-# Windows:
-# powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# Initialize project and install dependencies (one time)
-uv sync
-
-# If uv sync fails, use this simpler alternative:
-# uv venv && uv pip install -r requirements.txt
-
-# Create .env file
-echo "GOOGLE_API_KEY=your_api_key_here" > .env
-
-# Run the server (no activation needed!)
-uv run python app.py
-```
-
-**Why no `source .venv/bin/activate`?**
-- `uv run` automatically uses the project's virtual environment
-- No manual activation needed - UV handles it for you
-- Much cleaner workflow!
-
-#### Option B: Using pip (Traditional)
-
-```bash
-cd backend
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Create .env file
-echo "GOOGLE_API_KEY=your_api_key_here" > .env
-
-# Run the server
-python app.py
-```
-
-The backend will start on `http://localhost:5000`
-
-### 3. Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm start
-```
-
-The frontend will open at `http://localhost:3000`
+   Frontend runs at http://localhost:3000
 
 ## Project Structure
 
 ```
-paper-reading-agent/
+.
 ├── backend/
-│   ├── app.py                          # Flask API server
-│   ├── database.py                     # SQLite database operations
-│   ├── pyproject.toml                  # Python project config (uv)
-│   ├── requirements.txt                # Python dependencies (pip fallback)
-│   ├── .python-version                 # Python version (3.12)
-│   ├── agents/
-│   │   └── conversational/
-│   │       ├── agent.py                # Conversational agent (Design 4)
-│   │       ├── image_extractor.py      # On-demand figure extraction
-│   │       ├── prompts.py              # LLM system prompts
-│   │       └── tools.py                # Function declarations
-│   ├── providers/
-│   │   ├── base.py                     # Provider interfaces
-│   │   ├── gemini_provider.py          # Gemini API wrapper
-│   │   └── pdf_provider.py             # PDF processing utilities
-│   ├── models/
-│   │   ├── paper.py                    # Paper data models
-│   │   └── session.py                  # Session data models
-│   └── uploads/                        # Uploaded PDFs and extracted figures
+│   ├── app.py              # Flask API server
+│   ├── database.py         # SQLite database operations
+│   ├── models/             # SQLAlchemy models
+│   ├── agents/             # AI agent logic
+│   │   ├── agent.py        # Conversational agent & Stage Router
+│   │   ├── stage_prompts/  # Specialized stage instructions
+│   │   ├── prompts.py      # Base LLM system prompts
+│   │   ├── tools.py        # Agent tool definitions
+│   │   └── image_extractor.py
+│   ├── providers/          # AI providers (Gemini)
+│   └── uploads/            # Local storage for PDFs and figures
+│
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx                     # Main application component
-│   │   ├── App.css                     # Styles and animations
-│   │   └── index.tsx                   # React entry point
-│   ├── public/
-│   │   └── index.html                  # HTML template with KaTeX CDN
-│   └── package.json                    # Node dependencies
+│   │   ├── App.tsx         # Main application component
+│   │   ├── App.css         # Styles
+│   │   ├── components/     # React components
+│   │   └── types.ts        # TypeScript types
+│   └── package.json
+│
 └── README.md
 ```
 
 ## API Endpoints
 
-- `POST /api/analyze` - Upload and analyze a paper
-- `POST /api/chat` - Send a message in conversation
-- `GET /api/papers` - Get all analyzed papers
-- `GET /api/papers/<id>/messages` - Get conversation history
-- `DELETE /api/papers/<id>` - Delete a paper
-- `POST /api/explain-figure` - Get detailed figure explanation
-- `GET /uploads/<path>` - Serve uploaded files and images
-- `GET /health` - Health check
-
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/analyze` | POST | Upload and analyze a PDF |
+| `/api/chat` | POST | Send a message about a paper |
+| `/api/papers` | GET | List all papers |
+| `/api/papers/<id>/messages` | GET | Get chat history |
+| `/api/papers/<id>` | DELETE | Delete a paper |
+| `/uploads/<path>` | GET | Serve uploaded files |
+| `/health` | GET | Health check |
 
 ## Environment Variables
 
 Create `backend/.env` with:
 
 ```env
-GOOGLE_API_KEY=your_gemini_api_key_here
+GOOGLE_API_KEY=your-gemini-api-key
 ```
+
+## Usage
+
+1. Open http://localhost:3000 in your browser
+2. Click "Upload Your Paper" or the + button
+3. Upload a PDF file or paste an ArXiv URL
+4. Select your preferred output language
+5. Click "Analyze and Add"
+6. Once analyzed, ask questions about the paper in the chat
+
+## Development
+
+### Using UV (Recommended)
+
+```bash
+cd backend
+
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync
+
+# Run server
+uv run python app.py
+```
+
+### Running Tests
+
+```bash
+# Frontend
+cd frontend
+npm test
+
+# Backend
+cd backend
+python -m pytest
+```
+
+## Production Version
+
+For multi-user deployment with authentication, PostgreSQL, and cloud storage, see the `production/` folder.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see LICENSE file for details.
+
+## Acknowledgments
+
+- [Google Gemini](https://ai.google.dev/) for AI capabilities
+- [Flask](https://flask.palletsprojects.com/) for the backend framework
+- [React](https://react.dev/) for the frontend framework
