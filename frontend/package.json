@@ -50,6 +50,7 @@
   },
   "devDependencies": {
     "@types/dompurify": "^3.0.5",
-    "@types/katex": "^0.16.8"
+    "@types/katex": "^0.16.8",
+    "baseline-browser-mapping": "^2.9.19"
   }
 }

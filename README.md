@@ -2,15 +2,6 @@
 
 An AI-powered research paper reading assistant that helps you understand, analyze, and discuss academic papers.
 
-## Features
-
-- **Smart Summaries** - Get instant, intelligent summaries of research papers
-- **Interactive Q&A** - Ask questions about the paper and get detailed, context-aware answers
-- **Multi-Language Support** - Supports English and Chinese for summaries and discussions
-- **ArXiv Integration** - Paste any ArXiv link and we'll automatically fetch the PDF
-- **Figure Analysis** - AI extracts and explains figures, charts, and equations
-- **Reading History** - Keep track of all your papers and conversations
-
 ## System Architecture
 
 ![Pipeline Architecture](pipeline.png)
@@ -40,54 +31,76 @@ The Paper Reading Agent follows a sophisticated 6-phase pipeline designed for de
 
 ## Quick Start
 
-### Prerequisites
+### 1. Prerequisites
 
-- Python 3.12+
-- Node.js 18+
-- Google Gemini API key ([Get one here](https://aistudio.google.com/app/apikey))
+- **Python 3.12+**
+- **Node.js 18+**
+- **uv** (Recommended for backend: `curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- **Google Gemini API key** ([Get one here](https://aistudio.google.com/app/apikey))
 
-### Installation
+### 2. One-Click Start (Recommended)
 
-1. **Clone the repository**
+The easiest way to start both the backend and frontend is using the provided startup scripts:
+
+Provide Gemini model api
+```bash
+echo "GOOGLE_API_KEY=your-api-key-here" > .env
+```
+
+**For macOS / Linux:**
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+**For Windows:**
+```bash
+start.bat
+```
+
+These scripts will automatically check prerequisites, install dependencies (using `uv` for backend if available), and prompt you for your API key if it's missing.
+
+---
+
+### 3. API Key Configuration
+
+The application requires a Google Gemini API Key. If you haven't set it up yet:
+
+1. Get your key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. Create a `.env` file in the `backend/` directory:
    ```bash
-   git clone <repository-url>
-   cd paper-reading-agent
+   echo "GOOGLE_API_KEY=your_api_key_here" > backend/.env
    ```
 
-2. **Backend Setup**
+---
 
-   ```bash
-   cd backend
+### 4. Manual Installation
 
-   # Create virtual environment
-   python3 -m venv venv
-   source venv/bin/activate  # Windows: venv\Scripts\activate
+If you prefer to run components separately:
 
-   # Install dependencies
-   pip install -r requirements.txt
+#### Backend Setup (using `uv`)
+```bash
+cd backend
 
-   # Create .env file
-   echo "GOOGLE_API_KEY=your-api-key-here" > .env
+# Install dependencies
+uv sync
 
-   # Run the server
-   python app.py
-   ```
+# Run the server
+uv run python app.py
+```
+*Backend runs at http://localhost:5000*
 
-   Backend runs at http://localhost:5000
+#### Frontend Setup
+```bash
+cd frontend
 
-3. **Frontend Setup**
+# Install dependencies
+npm install
 
-   ```bash
-   cd frontend
-
-   # Install dependencies
-   npm install
-
-   # Run development server
-   npm start
-   ```
-
-   Frontend runs at http://localhost:3000
+# Run development server
+npm start
+```
+*Frontend runs at http://localhost:3000*
 
 ## Project Structure
 
@@ -146,41 +159,7 @@ GOOGLE_API_KEY=your-gemini-api-key
 5. Click "Analyze and Add"
 6. Once analyzed, ask questions about the paper in the chat
 
-## Development
-
-### Using UV (Recommended)
-
-```bash
-cd backend
-
-# Install uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Install dependencies
-uv sync
-
-# Run server
-uv run python app.py
-```
-
-### Running Tests
-
-```bash
-# Frontend
-cd frontend
-npm test
-
-# Backend
-cd backend
-python -m pytest
-```
-
 ## License
 
 MIT License - see LICENSE file for details.
 
-## Acknowledgments
-
-- [Google Gemini](https://ai.google.dev/) for AI capabilities
-- [Flask](https://flask.palletsprojects.com/) for the backend framework
-- [React](https://react.dev/) for the frontend framework
